@@ -1,0 +1,109 @@
+---
+title: "4th valve location pattern for double horn"
+author: "Yoshinobu Ishizaki"
+date: last-modified
+date-format: iso
+format: 
+  gfm:
+    df-print: kable
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+## Create design pattern
+
+Compared to 1-2-3 valves, 4th valve can be located at,
+
+- thumb/pinkey finger side 
+- inline/offset
+- flat/step level
+
+ and a valve rotation can be 
+ 
+ - 90 degree
+ - 60 degree
+ - 120 degree
+ 
+ Compose a table with these layout combinations.
+ 
+```{r}
+s1 <- c("thumb","pinkey")
+s2 <- c("inline","offset")
+s3 <- c("flat","step")
+s4 <- c("90deg","60deg","120deg")
+```
+
+```{r}
+v4tab <- expand_grid(s1,s2,s3,s4)
+names(v4tab) <- c("Side","Align","Level","Rotation")
+v4tab$Ex = ""
+```
+
+In case of 60 degree rotation, a valve does not have 2 levels, so that level difference is meaningless.
+
+```{r}
+v4tab <- 
+  v4tab |> filter(!(Level == "flat" & Rotation == "60deg"))
+```
+
+
+## Existing example
+
+There are some type of horn with one of such combination.
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "thumb" & Align == "offset" & Level == "step"& Rotation == "60deg", "Alexander 103", Ex) )
+```
+
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "pinkey" & Align == "inline" & Level == "flat"& Rotation == "120deg", "Geyer; Yamaha 871", Ex))
+
+```
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "pinkey" & Align == "inline" & Level == "flat" & Rotation == "90deg", "Knopf; Paxman; E.Schmid", Ex))
+```
+
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "thumb" & Align == "offset" & Level == "step"& Rotation == "120deg", "Conn 8D; Yamaha 668-2; Hans Hoyer 6801", Ex))
+
+```
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "thumb" & Align == "offset" & Level == "step"& Rotation == "90deg", "Yamaha 868-1", Ex))
+
+```
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "thumb" & Align == "offset" & Level == "step"& Rotation == "90deg", "Kruspe; Klaus Fehr", Ex))
+
+```
+
+
+```{r}
+v4tab <- 
+  v4tab |> mutate(Ex = if_else(Side == "thumb" & Align == "inline" & Level == "flat" & Rotation == "90deg", "Yamaha 869", Ex))
+```
+
+## View table
+
+```{r}
+v4tab
+```
+
+So, out of 20 possible combinations, there are many unused pattern.
+
+Can we create a new model to fill one of this? 
+
+
