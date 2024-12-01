@@ -3,9 +3,6 @@ title: "4th valve location pattern for double horn"
 author: "Yoshinobu Ishizaki"
 date: last-modified
 date-format: iso
-format: 
-  gfm:
-    df-print: kable
 ---
 
 ```{r}

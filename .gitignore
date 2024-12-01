@@ -4,3 +4,8 @@
 .Rhistory
 *_files/
 *.html
+
+/.quarto/
+site_libs/*
+_site/*
+

@@ -1,0 +1,27 @@
+project:
+  type: website
+
+website:
+  title: "horn_design"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - about.qmd
+  sidebar: 
+    style: docked
+    search: true
+    contents: 
+      - section: "Profile(Mensur)" 
+        contents: "*.ipynb" 
+      - section: "Documents"
+        contents: "doc/*/*.qmd"
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+
+
+

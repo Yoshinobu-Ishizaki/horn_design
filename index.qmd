@@ -1,0 +1,9 @@
+---
+title: "horn_design"
+---
+
+
+Thoughts, ideas, calculations, etc for Horn design.
+
+Powered by Quarto website.
+
