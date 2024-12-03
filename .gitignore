@@ -9,3 +9,9 @@
 site_libs/*
 _site/*
 
+# Freecad Backups
+*.FCBak
+
+# ignore Mac's .DS_Store 
+.DS_Store
+
