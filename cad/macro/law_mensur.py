@@ -6,8 +6,9 @@ Usage:
     - Column B: diameters (d) of the horn at those positions (in mm)
 2. Create a sketch representing the center path of the horn.
 3. Create VarSet variable "thickness" to add outer wall thickness.
-4. Select the sketch , then Spreadsheet in the FreeCAD GUI.
-5. Run this macro to generate the horn shape.
+4. Also create VarSet variable "reverse" (boolean) to reverse the center path direction if needed.
+5. Select the sketch , then Spreadsheet in the FreeCAD GUI.
+6. Run this macro to generate the horn shape.
 """
 
 import FreeCAD as App
@@ -68,16 +69,13 @@ if raw_data is None:
 # ----------------------------
 if not sketch:
     raise ValueError("please select a center path sketch")
-# If it's a wire with multiple edges, unify it
+
 if sketch.Shape.Wires:
     wire = sketch.Shape.Wires[0]
+    if doc.getObject('VarSet').reverse:
+        wire.reverse()
 
 total_length = wire.Length
-
-# ----------------------------
-# Get thieckness variable
-# ----------------------------
-thickness = float(doc.getObject('VarSet').thickness)
 
 # make bspline curve from wire
 pts = wire.discretize(Distance=1.0)  # create points every 1 mm
@@ -89,28 +87,16 @@ bspline.interpolate(
 # ----------------------------
 # Generate circle profiles
 # ----------------------------
-inner_profiles = []
-outer_profiles = []
+profiles = []
 
-# create diff data for each position
-
-diff_data = [ (raw_data[i+1][0] - raw_data[i][0], raw_data[i+1][1] - raw_data[i][1]) for i in range(len(raw_data)-1) ] 
-
+# create section wires
 for i in range(len(raw_data)):
-    # calculate wall thickness adjustment based on angle
-    if i == 0:
-        ds = diff_data[0][0]
-        dd = diff_data[0][1]
-    else:
-        ds = diff_data[i-1][0]
-        dd = diff_data[i-1][1]
-
-    a = math.atan2(dd/2.0, ds)
-    dt = thickness / math.cos(a) # adjust thickness based on angle
-
     s = raw_data[i][0]
     d = raw_data[i][1]
     r = d / 2.0
+
+    if s > total_length:
+        break
 
     pos = bspline.value(s) # position on the bspline at parameter s
     T = bspline.tangent(s)[0]  # first element of tangent tuple
@@ -128,26 +114,20 @@ for i in range(len(raw_data)):
     # Circle profile
     circle = Part.makeCircle(r)
     circle = circle.transformGeometry(placement.toMatrix())
-    wire_inner = Part.Wire(circle)
-    inner_profiles.append(wire_inner)
+    cw = Part.Wire(circle)
+    profiles.append(cw)
 
-    # Outer wall profile
-    r2 = r + dt
-    circle2 = Part.makeCircle(r2)
-    circle2 = circle2.transformGeometry(placement.toMatrix())
-    wire_outer = Part.Wire(circle2)
-    outer_profiles.append(wire_outer)
+# create pipeshell
+pipe_obj = doc.addObject('Part::Feature', 'Face_Pipe')
+makeSolid = False
+isFrenet = False
+pipeshell = wire.makePipeShell(profiles, makeSolid, isFrenet)
+pipe_obj.Shape = pipeshell
 
-# ----------------------------
-# Loft horn
-# ----------------------------
-inner_loft = Part.makeLoft(inner_profiles, True)  # True: solid
-outer_loft = Part.makeLoft(outer_profiles, True)  
-
-# ----------------------------
-# Subtract inner solid from outer solid to create final horn
-# ----------------------------
-final_loft = outer_loft.cut(inner_loft)
-Part.show(final_loft)
+# create offset shape with fill (call on pipeshell, not pipe_obj)
+th = doc.getObject('VarSet').thickness
+offset_shape = pipeshell.makeOffsetShape(th, 0.001, offsetMode=0, fill=True)
+offset_obj = doc.addObject('Part::Feature', 'Offset_Pipe')
+offset_obj.Shape = offset_shape
 
 doc.recompute()
