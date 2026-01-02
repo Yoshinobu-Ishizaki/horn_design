@@ -14,6 +14,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 import Part
 import re
+import math
 
 doc = App.ActiveDocument
 
@@ -91,10 +92,28 @@ bspline.interpolate(
 inner_profiles = []
 outer_profiles = []
 
-for s, d in raw_data:
-    pos = bspline.value(s)
-    T = bspline.tangent(s)[0]  # first element of tangent tuple
+# create diff data for each position
+
+diff_data = [ (raw_data[i+1][0] - raw_data[i][0], raw_data[i+1][1] - raw_data[i][1]) for i in range(len(raw_data)-1) ] 
+
+for i in range(len(raw_data)):
+    # calculate wall thickness adjustment based on angle
+    if i == 0:
+        ds = diff_data[0][0]
+        dd = diff_data[0][1]
+    else:
+        ds = diff_data[i-1][0]
+        dd = diff_data[i-1][1]
+
+    a = math.atan2(dd/2.0, ds)
+    dt = thickness / math.cos(a) # adjust thickness based on angle
+
+    s = raw_data[i][0]
+    d = raw_data[i][1]
     r = d / 2.0
+
+    pos = bspline.value(s) # position on the bspline at parameter s
+    T = bspline.tangent(s)[0]  # first element of tangent tuple
 
     # Construct orthonormal frame
     Z = T
@@ -113,7 +132,7 @@ for s, d in raw_data:
     inner_profiles.append(wire_inner)
 
     # Outer wall profile
-    r2 = r + thickness
+    r2 = r + dt
     circle2 = Part.makeCircle(r2)
     circle2 = circle2.transformGeometry(placement.toMatrix())
     wire_outer = Part.Wire(circle2)
