@@ -1,5 +1,16 @@
+"""Create a horn shape by lofting circle profiles along a center path sketch.
+
+Usage:
+1. Create or Import a Spreadsheet object with two columns:
+    - Column A: path length positions (s) along the center path (in mm)
+    - Column B: diameters (d) of the horn at those positions (in mm)
+2. Create a sketch representing the center path of the horn.
+3. Select the sketch , then Spreadsheet in the FreeCAD GUI.
+4. Run this macro to generate the horn shape.
+"""
+
 import FreeCAD as App
-import FreeCADGui
+import FreeCADGui as Gui
 import Part
 import re
 
@@ -9,57 +20,68 @@ doc = App.ActiveDocument
 # Get contents of Spreadsheet as list of data
 # ----------------------------
 
+
 def getSpreadsheetData(sheet):
     """Extracts the entire spreadsheet data as a list of lists."""
-
-    # 1. Access the document and spreadsheet
-    sheet = doc.getObject('Spreadsheet')
-
     # 2. Get the used range (e.g., ('A1', 'B15'))
     used_range = sheet.getUsedRange()
 
     if used_range:
         # used_range[1] is the bottom-right cell (e.g., 'B15')
         last_cell = used_range[1]
-        
+
         # Use regex to extract the row number from the cell name (e.g., '15' from 'B15')
-        match = re.search(r'\d+', last_cell)
+        match = re.search(r"\d+", last_cell)
         if match:
             max_row = int(match.group())
-            
+
             # 3. Extract Column A based on the calculated range
-            datA = [float(sheet.getContents(f'A{i}')) for i in range(1, max_row + 1)]
-            datB = [float(sheet.getContents(f'B{i}')) for i in range(1, max_row + 1)]
+            datA = [float(sheet.getContents(f"A{i}")) for i in range(1, max_row + 1)]
+            datB = [float(sheet.getContents(f"B{i}")) for i in range(1, max_row + 1)]
             return list(zip(datA, datB))
     else:
         print("Spreadsheet is empty.")
         return None
 
+
+# ----------------------------
+# Get sketch and sheet
+# ----------------------------
+
+sketch, sheet = Gui.Selection.getSelection()
+# Check class types
+expected_sketch_class = 'Sketcher.SketchObject'
+expected_sheet_class = 'Spreadsheet.Sheet'
+if sketch.__class__.__name__ != 'SketchObject':
+    raise TypeError(f"Selected sketch is not a SketchObject, got {sketch.__class__.__name__}")
+if sheet.__class__.__name__ != 'Sheet':
+    raise TypeError(f"Selected sheet is not a Sheet, got {sheet.__class__.__name__}")
+
 # ----------------------------
 # Get spreadsheet data
 # ----------------------------
-raw_data = getSpreadsheetData('Spreadsheet')
+raw_data = getSpreadsheetData(sheet)
 if raw_data is None:
     raise ValueError("Spreadsheet is empty or not found.")
 
 # ----------------------------
 # Get selected center path
 # ----------------------------
-selection = FreeCADGui.Selection.getSelection()
-if not selection:
+if not sketch:
     raise ValueError("please select a center path sketch")
-obj = selection[0]
 
 # If it's a wire with multiple edges, unify it
-if obj.Shape.Wires:
-    wire = obj.Shape.Wires[0]
+if sketch.Shape.Wires:
+    wire = sketch.Shape.Wires[0]
 
 total_length = wire.Length
 
 # make bspline curve from wire
-pts = wire.discretize(Distance=1.0) # create points every 1 mm
+pts = wire.discretize(Distance=1.0)  # create points every 1 mm
 bspline = Part.BSplineCurve()
-bspline.interpolate(pts, False) # create bspline curve, 'False' means the curve is not closed. its parameter consists of the length of the curve
+bspline.interpolate(
+    pts, False
+)  # create bspline curve, 'False' means the curve is not closed. its parameter consists of the length of the curve
 
 # ----------------------------
 # Generate circle profiles
@@ -67,9 +89,8 @@ bspline.interpolate(pts, False) # create bspline curve, 'False' means the curve 
 profiles = []
 
 for s, d in raw_data:
-
     pos = bspline.value(s)
-    T = bspline.tangent(s)[0] # first element of tangent tuple
+    T = bspline.tangent(s)[0]  # first element of tangent tuple
     r = d / 2.0
 
     # Construct orthonormal frame
@@ -92,7 +113,7 @@ for s, d in raw_data:
 # ----------------------------
 # Loft horn
 # ----------------------------
-loft = Part.makeLoft(profiles, False) # surface loft
+loft = Part.makeLoft(profiles, False)  # surface loft
 Part.show(loft)
 
 doc.recompute()
