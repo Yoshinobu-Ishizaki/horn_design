@@ -5,8 +5,9 @@ Usage:
     - Column A: path length positions (s) along the center path (in mm)
     - Column B: diameters (d) of the horn at those positions (in mm)
 2. Create a sketch representing the center path of the horn.
-3. Select the sketch , then Spreadsheet in the FreeCAD GUI.
-4. Run this macro to generate the horn shape.
+3. Create VarSet variable "thickness" to add outer wall thickness.
+4. Select the sketch , then Spreadsheet in the FreeCAD GUI.
+5. Run this macro to generate the horn shape.
 """
 
 import FreeCAD as App
@@ -19,8 +20,6 @@ doc = App.ActiveDocument
 # ----------------------------
 # Get contents of Spreadsheet as list of data
 # ----------------------------
-
-
 def getSpreadsheetData(sheet):
     """Extracts the entire spreadsheet data as a list of lists."""
     # 2. Get the used range (e.g., ('A1', 'B15'))
@@ -42,7 +41,6 @@ def getSpreadsheetData(sheet):
     else:
         print("Spreadsheet is empty.")
         return None
-
 
 # ----------------------------
 # Get sketch and sheet
@@ -69,12 +67,16 @@ if raw_data is None:
 # ----------------------------
 if not sketch:
     raise ValueError("please select a center path sketch")
-
 # If it's a wire with multiple edges, unify it
 if sketch.Shape.Wires:
     wire = sketch.Shape.Wires[0]
 
 total_length = wire.Length
+
+# ----------------------------
+# Get thieckness variable
+# ----------------------------
+thickness = float(doc.getObject('VarSet').thickness)
 
 # make bspline curve from wire
 pts = wire.discretize(Distance=1.0)  # create points every 1 mm
@@ -86,7 +88,8 @@ bspline.interpolate(
 # ----------------------------
 # Generate circle profiles
 # ----------------------------
-profiles = []
+inner_profiles = []
+outer_profiles = []
 
 for s, d in raw_data:
     pos = bspline.value(s)
@@ -106,14 +109,26 @@ for s, d in raw_data:
     # Circle profile
     circle = Part.makeCircle(r)
     circle = circle.transformGeometry(placement.toMatrix())
-    wire = Part.Wire(circle)
+    wire_inner = Part.Wire(circle)
+    inner_profiles.append(wire_inner)
 
-    profiles.append(wire)
+    # Outer wall profile
+    r2 = r + thickness
+    circle2 = Part.makeCircle(r2)
+    circle2 = circle2.transformGeometry(placement.toMatrix())
+    wire_outer = Part.Wire(circle2)
+    outer_profiles.append(wire_outer)
 
 # ----------------------------
 # Loft horn
 # ----------------------------
-loft = Part.makeLoft(profiles, False)  # surface loft
-Part.show(loft)
+inner_loft = Part.makeLoft(inner_profiles, True)  # True: solid
+outer_loft = Part.makeLoft(outer_profiles, True)  
+
+# ----------------------------
+# Subtract inner solid from outer solid to create final horn
+# ----------------------------
+final_loft = outer_loft.cut(inner_loft)
+Part.show(final_loft)
 
 doc.recompute()
