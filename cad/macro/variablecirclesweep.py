@@ -13,7 +13,7 @@ Usage:
 6. Run this macro to generate the horn shape.
 
 Notes:
-- Length of center path must be shorter than data in spreadsheet.
+- Created sweep will be extended when the center path is longer than the data in the spreadsheet.
 - If sweep fails with 'Geom_BSplineSurface: Weights values too small', try decreasing the number of points in the spreadsheet.
 
 """
@@ -85,8 +85,8 @@ if sketch.Shape.Wires:
     if doc.getObject('VarSet').reverse:
         wire.reverse()
 
-if wire.Length > max_s:
-    raise ValueError("length of center path sketch must shorter than data in spreadsheet.")
+# if wire.Length > max_s:
+#     raise ValueError("length of center path sketch must shorter than data in spreadsheet.")
 
 # make bspline curve from wire
 pts = wire.discretize(Distance=1.0)  # create points every 1 mm
