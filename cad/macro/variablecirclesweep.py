@@ -1,4 +1,6 @@
-"""Create a horn shape by lofting circle profiles along a center path sketch.
+"""VARIABLE CIRCLE SWEEP MACRO
+
+Sweep varying circle profiles along a center path sketch.
 
 Usage:
 1. Create or Import a Spreadsheet object with two columns:
@@ -9,6 +11,11 @@ Usage:
 4. Also create VarSet variable "reverse" (boolean) to reverse the center path direction if needed.
 5. Select the sketch , then Spreadsheet in the FreeCAD GUI.
 6. Run this macro to generate the horn shape.
+
+Notes:
+- Length of center path must be shorter than data in spreadsheet.
+- If sweep fails with 'Geom_BSplineSurface: Weights values too small', try decreasing the number of points in the spreadsheet.
+
 """
 
 import FreeCAD as App
@@ -41,8 +48,7 @@ def getSpreadsheetData(sheet):
             datB = [float(sheet.getContents(f"B{i}")) for i in range(1, max_row + 1)]
             return list(zip(datA, datB))
     else:
-        print("Spreadsheet is empty.")
-        return None
+        raise ValueError("Spreadsheet is empty.")
 
 # ----------------------------
 # Get sketch and sheet
@@ -64,38 +70,39 @@ raw_data = getSpreadsheetData(sheet)
 if raw_data is None:
     raise ValueError("Spreadsheet is empty or not found.")
 
+# maximum length value in data
+max_s = raw_data[-1][0]
+
 # ----------------------------
 # Get selected center path
 # ----------------------------
 if not sketch:
     raise ValueError("please select a center path sketch")
 
+# reverse wire if specified
 if sketch.Shape.Wires:
     wire = sketch.Shape.Wires[0]
     if doc.getObject('VarSet').reverse:
         wire.reverse()
 
-total_length = wire.Length
+if wire.Length > max_s:
+    raise ValueError("length of center path sketch must shorter than data in spreadsheet.")
 
 # make bspline curve from wire
 pts = wire.discretize(Distance=1.0)  # create points every 1 mm
 bspline = Part.BSplineCurve()
-bspline.interpolate(
-    pts, False
-)  # create bspline curve, 'False' means the curve is not closed. its parameter consists of the length of the curve
+bspline.interpolate(pts, False)  # create bspline curve, 'False' means the curve is not closed. its parameter consists of the length of the curve
 
 # ----------------------------
 # Generate circle profiles
 # ----------------------------
 profiles = []
 
-# create section wires
-for i in range(len(raw_data)):
-    s = raw_data[i][0]
-    d = raw_data[i][1]
+for s,d in raw_data:
     r = d / 2.0
 
-    if s > total_length:
+    # stop if s exceeds total length
+    if s > wire.Length:
         break
 
     pos = bspline.value(s) # position on the bspline at parameter s
@@ -126,7 +133,7 @@ pipe_obj.Shape = pipeshell
 
 # create offset shape with fill (call on pipeshell, not pipe_obj)
 th = doc.getObject('VarSet').thickness
-offset_shape = pipeshell.makeOffsetShape(th, 0.001, offsetMode=0, fill=True)
+offset_shape = pipeshell.makeOffsetShape(th, 1e-6, offsetMode=0, fill=True)
 offset_obj = doc.addObject('Part::Feature', 'Offset_Pipe')
 offset_obj.Shape = offset_shape
 
