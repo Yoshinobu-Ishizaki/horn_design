@@ -16,13 +16,12 @@ Notes:
 
 """
 
-import math
 import re
 
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
-from PySide import QtCore, QtGui
+from PySide import QtGui
 
 
 # ----------------------------
@@ -147,11 +146,12 @@ def variableCircleSweep(thickness, is_reversed):
 # open task dialog first
 # ----------------------------
 
-class ThicknessTaskPanel:
+class VariableCircleSweepPanel:
     def __init__(self):
         # Create the main widget
         self.form = QtGui.QWidget()
         layout = QtGui.QVBoxLayout(self.form)
+        layout.addWidget(QtGui.QLabel("Variable Circle Sweep Settings"))
 
         # Thickness Input (SpinBox)
         layout.addWidget(QtGui.QLabel("Thickness:"))
@@ -162,25 +162,80 @@ class ThicknessTaskPanel:
         layout.addWidget(self.thickness_input)
 
         # Reverse Checkbox
-        self.reverse_input = QtGui.QCheckBox("Reverse Direction")
+        self.reverse_input = QtGui.QCheckBox("Reverse Direction (show end point)")
         layout.addWidget(self.reverse_input)
+        self.reverse_input.stateChanged.connect(self.on_reverse_changed)
 
+        self.sg_node = None
         self.form.setLayout(layout)
+
+        # Show marker preview if possible
+        self.show_marker()
+
+    def on_reverse_changed(self, state):
+        self.update_marker()
+
+    def update_marker(self):
+        # Remove old marker if exists
+        import FreeCADGui as Gui
+        view = Gui.ActiveDocument.ActiveView
+        sg = view.getSceneGraph()
+        if self.sg_node:
+            sg.removeChild(self.sg_node)
+        self.show_marker()
+
+    def show_marker(self):
+        import FreeCADGui as Gui
+        import pivy.coin as coin
+        try:
+            sketch, sheet = Gui.Selection.getSelection()
+            if sketch.__class__.__name__ != 'SketchObject':
+                return
+        except Exception:
+            return
+        if not sketch.Shape.Edges:
+            return
+        # Determine which edge and parameter to use
+        if self.reverse_input.isChecked():
+            e = sketch.Shape.Edges[-1]
+            pos = e.valueAt(e.LastParameter)
+        else:
+            e = sketch.Shape.Edges[0]
+            pos = e.valueAt(e.FirstParameter)
+        # Create marker
+        view = Gui.ActiveDocument.ActiveView
+        sg = view.getSceneGraph()
+        self.sg_node = coin.SoSeparator()
+        mat = coin.SoMaterial()
+        mat.diffuseColor = (1.0, 0.0, 0.0)
+        self.sg_node.addChild(mat)
+        translation = coin.SoTranslation()
+        translation.translation.setValue(tuple(pos))
+        self.sg_node.addChild(translation)
+        sphere = coin.SoSphere()
+        sphere.radius = 0.5
+        self.sg_node.addChild(sphere)
+        sg.addChild(self.sg_node)
 
     def accept(self):
         """Action when 'OK' is clicked."""
         thickness = self.thickness_input.value()
         is_reversed = self.reverse_input.isChecked()
-        
-        # App.Console.PrintMessage(f"Applying thickness: {thickness}, Reverse: {is_reversed}\n")
-        # invoke sweep shape creation
         variableCircleSweep(thickness, is_reversed)
-
+        # Remove marker
+        view = Gui.ActiveDocument.ActiveView
+        sg = view.getSceneGraph()
+        if self.sg_node:
+            sg.removeChild(self.sg_node)
         Gui.Control.closeDialog()
         return True
 
     def reject(self):
         """Action when 'Cancel' is clicked."""
+        view = Gui.ActiveDocument.ActiveView
+        sg = view.getSceneGraph()
+        if self.sg_node:
+            sg.removeChild(self.sg_node)
         Gui.Control.closeDialog()
         return True
 
@@ -189,6 +244,6 @@ class ThicknessTaskPanel:
 # ---------------------------
 
 # To launch the panel
-panel = ThicknessTaskPanel()
+panel = VariableCircleSweepPanel()
 Gui.Control.showDialog(panel)
 
