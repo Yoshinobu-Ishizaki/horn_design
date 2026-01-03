@@ -1,3 +1,8 @@
+#
+# Yoshinobu Ishizaki <ysnbiszk@gmail.com>
+# 2026-01-03
+#
+
 """VARIABLE CIRCLE SWEEP MACRO
 
 Sweep varying circle profiles along a center path sketch.
@@ -5,10 +10,10 @@ Sweep varying circle profiles along a center path sketch.
 Usage:
 1. Create or Import a Spreadsheet object with two columns:
     - Column A: path length positions (s) along the center path (in mm)
-    - Column B: diameters (d) of the horn at those positions (in mm)
-2. Create a sketch representing the center path of the horn.
-5. Select the 'Sketch' , then 'Spreadsheet' in the FreeCAD GUI.
-6. Run this macro to generate a variable circle sweep shape with given thickness.
+    - Column B: diameters (d) of the circle at those positions (in mm)
+2. Create a sketch representing the center path for the sweep.
+3. Select the 'Sketch' , then 'Spreadsheet' in the FreeCAD GUI.
+4. Run this macro to generate a varying circle sweep shape with given thickness. You can specify its thickness and direction in the dialog.
 
 Notes:
 - Created sweep will be extended when the center path is longer than the data in the spreadsheet.
@@ -17,12 +22,10 @@ Notes:
 """
 
 import re
-
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
 from PySide import QtGui
-
 
 # ----------------------------
 # Function to get contents of Spreadsheet as list of data
