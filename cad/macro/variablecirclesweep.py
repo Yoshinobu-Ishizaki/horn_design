@@ -7,10 +7,8 @@ Usage:
     - Column A: path length positions (s) along the center path (in mm)
     - Column B: diameters (d) of the horn at those positions (in mm)
 2. Create a sketch representing the center path of the horn.
-3. Create VarSet variable "thickness" to add outer wall thickness.
-4. Also create VarSet variable "reverse" (boolean) to reverse the center path direction if needed.
-5. Select the sketch , then Spreadsheet in the FreeCAD GUI.
-6. Run this macro to generate the horn shape.
+5. Select the 'Sketch' , then 'Spreadsheet' in the FreeCAD GUI.
+6. Run this macro to generate a variable circle sweep shape with given thickness.
 
 Notes:
 - Created sweep will be extended when the center path is longer than the data in the spreadsheet.
@@ -18,16 +16,17 @@ Notes:
 
 """
 
+import math
+import re
+
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
-import re
-import math
+from PySide import QtCore, QtGui
 
-doc = App.ActiveDocument
 
 # ----------------------------
-# Get contents of Spreadsheet as list of data
+# Function to get contents of Spreadsheet as list of data
 # ----------------------------
 def getSpreadsheetData(sheet):
     """Extracts the entire spreadsheet data as a list of lists."""
@@ -51,90 +50,145 @@ def getSpreadsheetData(sheet):
         raise ValueError("Spreadsheet is empty.")
 
 # ----------------------------
-# Get sketch and sheet
+# Variable Circle Sweep Function
+# ----------------------------
+def variableCircleSweep(thickness, is_reversed):
+
+    doc = App.ActiveDocument
+
+    # ----------------------------
+    # Get sketch and sheet
+    # ----------------------------
+    sketch, sheet = Gui.Selection.getSelection()
+    # Check class types
+    if sketch.__class__.__name__ != 'SketchObject':
+        raise TypeError(f"Selected sketch is not a SketchObject, got {sketch.__class__.__name__}")
+    if sheet.__class__.__name__ != 'Sheet':
+        raise TypeError(f"Selected sheet is not a Sheet, got {sheet.__class__.__name__}")
+
+    # ----------------------------
+    # Get spreadsheet data
+    # ----------------------------
+    raw_data = getSpreadsheetData(sheet)
+    if raw_data is None:
+        raise ValueError("Spreadsheet is empty or not found.")
+
+    # maximum length value in data
+    max_s = raw_data[-1][0]
+
+    # ----------------------------
+    # Get selected center path
+    # ----------------------------
+    if not sketch:
+        raise ValueError("please select a center path sketch")
+
+    # reverse wire if specified
+    if sketch.Shape.Wires:
+        wire = sketch.Shape.Wires[0]
+        if is_reversed:
+            wire.reverse()
+
+    # if wire.Length > max_s:
+    #     raise ValueError("length of center path sketch must shorter than data in spreadsheet.")
+
+    # make bspline curve from wire
+    pts = wire.discretize(Distance=1.0)  # create points every 1 mm
+    bspline = Part.BSplineCurve()
+    bspline.interpolate(pts, False)  # create bspline curve, 'False' means the curve is not closed. its parameter consists of the length of the curve
+
+    # ----------------------------
+    # Generate circle profiles
+    # ----------------------------
+    profiles = []
+
+    for s,d in raw_data:
+        r = d / 2.0
+
+        # stop if s exceeds total length
+        if s > wire.Length:
+            break
+
+        pos = bspline.value(s) # position on the bspline at parameter s
+        T = bspline.tangent(s)[0]  # first element of tangent tuple
+
+        # Construct orthonormal frame
+        Z = T
+        X = App.Vector(0, 0, 1).cross(Z)
+        if X.Length < 1e-6:
+            X = App.Vector(1, 0, 0)
+        X.normalize()
+        Y = Z.cross(X).normalize()
+
+        placement = App.Placement(pos, App.Rotation(X, Y, Z))
+
+        # Circle profile
+        circle = Part.makeCircle(r)
+        circle = circle.transformGeometry(placement.toMatrix())
+        cw = Part.Wire(circle)
+        profiles.append(cw)
+
+    # create pipeshell
+    pipe_obj = doc.addObject('Part::Feature', 'Face_Pipe')
+    makeSolid = False
+    isFrenet = False
+    pipeshell = wire.makePipeShell(profiles, makeSolid, isFrenet)
+    pipe_obj.Shape = pipeshell
+
+    # create offset shape with fill (call on pipeshell, not pipe_obj)
+    offset_shape = pipeshell.makeOffsetShape(thickness, 1e-6, offsetMode=0, fill=True)
+    offset_obj = doc.addObject('Part::Feature', 'Offset_Pipe')
+    offset_obj.Shape = offset_shape
+
+    doc.recompute()
+
+    return
+
+# ----------------------------
+# open task dialog first
 # ----------------------------
 
-sketch, sheet = Gui.Selection.getSelection()
-# Check class types
-expected_sketch_class = 'Sketcher.SketchObject'
-expected_sheet_class = 'Spreadsheet.Sheet'
-if sketch.__class__.__name__ != 'SketchObject':
-    raise TypeError(f"Selected sketch is not a SketchObject, got {sketch.__class__.__name__}")
-if sheet.__class__.__name__ != 'Sheet':
-    raise TypeError(f"Selected sheet is not a Sheet, got {sheet.__class__.__name__}")
+class ThicknessTaskPanel:
+    def __init__(self):
+        # Create the main widget
+        self.form = QtGui.QWidget()
+        layout = QtGui.QVBoxLayout(self.form)
 
-# ----------------------------
-# Get spreadsheet data
-# ----------------------------
-raw_data = getSpreadsheetData(sheet)
-if raw_data is None:
-    raise ValueError("Spreadsheet is empty or not found.")
+        # Thickness Input (SpinBox)
+        layout.addWidget(QtGui.QLabel("Thickness:"))
+        self.thickness_input = QtGui.QDoubleSpinBox()
+        self.thickness_input.setRange(0.0, 1000.0)
+        self.thickness_input.setValue(1.0)
+        self.thickness_input.setSuffix(" mm")
+        layout.addWidget(self.thickness_input)
 
-# maximum length value in data
-max_s = raw_data[-1][0]
+        # Reverse Checkbox
+        self.reverse_input = QtGui.QCheckBox("Reverse Direction")
+        layout.addWidget(self.reverse_input)
 
-# ----------------------------
-# Get selected center path
-# ----------------------------
-if not sketch:
-    raise ValueError("please select a center path sketch")
+        self.form.setLayout(layout)
 
-# reverse wire if specified
-if sketch.Shape.Wires:
-    wire = sketch.Shape.Wires[0]
-    if doc.getObject('VarSet').reverse:
-        wire.reverse()
+    def accept(self):
+        """Action when 'OK' is clicked."""
+        thickness = self.thickness_input.value()
+        is_reversed = self.reverse_input.isChecked()
+        
+        # App.Console.PrintMessage(f"Applying thickness: {thickness}, Reverse: {is_reversed}\n")
+        # invoke sweep shape creation
+        variableCircleSweep(thickness, is_reversed)
 
-# if wire.Length > max_s:
-#     raise ValueError("length of center path sketch must shorter than data in spreadsheet.")
+        Gui.Control.closeDialog()
+        return True
 
-# make bspline curve from wire
-pts = wire.discretize(Distance=1.0)  # create points every 1 mm
-bspline = Part.BSplineCurve()
-bspline.interpolate(pts, False)  # create bspline curve, 'False' means the curve is not closed. its parameter consists of the length of the curve
+    def reject(self):
+        """Action when 'Cancel' is clicked."""
+        Gui.Control.closeDialog()
+        return True
 
-# ----------------------------
-# Generate circle profiles
-# ----------------------------
-profiles = []
+# ---------------------------
+# main excecution
+# ---------------------------
 
-for s,d in raw_data:
-    r = d / 2.0
+# To launch the panel
+panel = ThicknessTaskPanel()
+Gui.Control.showDialog(panel)
 
-    # stop if s exceeds total length
-    if s > wire.Length:
-        break
-
-    pos = bspline.value(s) # position on the bspline at parameter s
-    T = bspline.tangent(s)[0]  # first element of tangent tuple
-
-    # Construct orthonormal frame
-    Z = T
-    X = App.Vector(0, 0, 1).cross(Z)
-    if X.Length < 1e-6:
-        X = App.Vector(1, 0, 0)
-    X.normalize()
-    Y = Z.cross(X).normalize()
-
-    placement = App.Placement(pos, App.Rotation(X, Y, Z))
-
-    # Circle profile
-    circle = Part.makeCircle(r)
-    circle = circle.transformGeometry(placement.toMatrix())
-    cw = Part.Wire(circle)
-    profiles.append(cw)
-
-# create pipeshell
-pipe_obj = doc.addObject('Part::Feature', 'Face_Pipe')
-makeSolid = False
-isFrenet = False
-pipeshell = wire.makePipeShell(profiles, makeSolid, isFrenet)
-pipe_obj.Shape = pipeshell
-
-# create offset shape with fill (call on pipeshell, not pipe_obj)
-th = doc.getObject('VarSet').thickness
-offset_shape = pipeshell.makeOffsetShape(th, 1e-6, offsetMode=0, fill=True)
-offset_obj = doc.addObject('Part::Feature', 'Offset_Pipe')
-offset_obj.Shape = offset_shape
-
-doc.recompute()
