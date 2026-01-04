@@ -162,12 +162,12 @@
     },
     {
       "id": "cgDC",
-      "code_hash": "8789b60ffee84904883350e241160092",
+      "code_hash": "3349867ba4b1cd61e3e7181ae89ef8f1",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"b1-slide\">B1 slide</h3></span>"
           }
         }
       ],
@@ -175,6 +175,45 @@
     },
     {
       "id": "mxRq",
+      "code_hash": "f72f193f4fd4db00fc8c2d4c54aa3014",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "gfkD",
+      "code_hash": "f57d0f1bd244998d2878dcaf3afeb32f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>346.01602764994027</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "LuMs",
+      "code_hash": "cec412f37234a8c66ad2560a1db17c9b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>163.01602764994027</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "sgSf",
       "code_hash": null,
       "outputs": [],
       "console": []

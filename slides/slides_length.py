@@ -53,7 +53,7 @@ def _(mo):
 def _():
     slide_short = 36 + 6 + 1
     slide_long = 67 + 6 + 1
-    return (slide_short,)
+    return slide_long, slide_short
 
 
 @app.cell(hide_code=True)
@@ -94,11 +94,31 @@ def _(b2_len, portlen, slide_short):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
- 
+    ### B1 slide
     """)
+    return
+
+
+@app.cell
+def _():
+    holetone_ratio = 2**(1/6)
+    return (holetone_ratio,)
+
+
+@app.cell
+def _(bopen, holetone_ratio):
+    b1_len = bopen * (holetone_ratio-1)
+    b1_len
+    return (b1_len,)
+
+
+@app.cell
+def _(b1_len, portlen, slide_long):
+    b1_bow = b1_len - portlen - 2*slide_long
+    b1_bow
     return
 
 
