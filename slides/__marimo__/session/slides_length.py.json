@@ -1,0 +1,183 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.18.4"
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "1d0db38904205bec4d6f6f6a1f6cec3e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "HEze",
+      "code_hash": "cb76a9dbaa10a3bf6960771e98b18f95",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"slide-length-calculation\">Slide length calculation</h2>\n<ul>\n<li>F/Bb open lengths are assumed as below.</li>\n</ul></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "HgMp",
+      "code_hash": "daef7c652f5272f834b360fd866591f6",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "mXQJ",
+      "code_hash": "15fc0e29314f58d984dfb4b59bf37875",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Also, each valve port length is assumed as,  </span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BWKn",
+      "code_hash": "dcef78eef7de51d816b4e10180d51271",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "waDn",
+      "code_hash": "3eca481d4d75379a62bd3c9ee122c937",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Basic slide pipe length are measured (adding ferrule length and slide gap), </span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "uSFs",
+      "code_hash": "feceb0a5822d2abc73c6792f5b6137f4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "jXvZ",
+      "code_hash": "8ded642dfe70fb715362ddf3b2f25087",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"bb-2nd-slide\">Bb 2nd slide</h3>\n<span class=\"paragraph\">half tone longer than Bb open.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "VMHk",
+      "code_hash": "0ff19418a14b3767c15809728e1d7095",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "URPa",
+      "code_hash": "d89a4abc8ecd7f4c62e06e5abf8ba490",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>168.0127352598115</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "uWuB",
+      "code_hash": "b64677b84fae21d3841ff2d99796a234",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">b2 bow length are calculated as, </span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BuxJ",
+      "code_hash": "8ee9c56c1485a51af2520c6cb32d6bb2",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>47.01273525981151</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "cgDC",
+      "code_hash": "8789b60ffee84904883350e241160092",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "mxRq",
+      "code_hash": null,
+      "outputs": [],
+      "console": []
+    }
+  ]
+}
