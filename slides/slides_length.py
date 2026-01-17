@@ -122,6 +122,42 @@ def _(b1_len, portlen, slide_long):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### B3 slide
+
+    The length of b3 slide is calculated for 2-3 combination, then subtract b2 length.
+    """)
+    return
+
+
+@app.cell
+def _():
+    twotone_ratio = 2 ** (4/12)
+    return (twotone_ratio,)
+
+
+@app.cell
+def _(bopen, twotone_ratio):
+    b23_len = bopen * (twotone_ratio-1)
+    return (b23_len,)
+
+
+@app.cell
+def _(b23_len, b2_len):
+    b3_len = b23_len - b2_len
+    b3_len
+    return (b3_len,)
+
+
+@app.cell
+def _(b3_len, portlen, slide_long):
+    b3_bow = b3_len - portlen - 2*slide_long
+    b3_bow
+    return
+
+
 @app.cell
 def _():
     return

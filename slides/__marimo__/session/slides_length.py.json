@@ -18,7 +18,7 @@
       "console": []
     },
     {
-      "id": "HEze",
+      "id": "MJUe",
       "code_hash": "cb76a9dbaa10a3bf6960771e98b18f95",
       "outputs": [
         {
@@ -31,7 +31,7 @@
       "console": []
     },
     {
-      "id": "HgMp",
+      "id": "vblA",
       "code_hash": "daef7c652f5272f834b360fd866591f6",
       "outputs": [
         {
@@ -44,20 +44,20 @@
       "console": []
     },
     {
-      "id": "mXQJ",
-      "code_hash": "15fc0e29314f58d984dfb4b59bf37875",
+      "id": "bkHC",
+      "code_hash": "8470888ce433f7b9ab3f39f6e839422e",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Also, each valve port length is assumed as,  </span></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Also, each valve port length is assumed as,</span></span>"
           }
         }
       ],
       "console": []
     },
     {
-      "id": "BWKn",
+      "id": "lEQa",
       "code_hash": "dcef78eef7de51d816b4e10180d51271",
       "outputs": [
         {
@@ -70,20 +70,20 @@
       "console": []
     },
     {
-      "id": "waDn",
-      "code_hash": "3eca481d4d75379a62bd3c9ee122c937",
+      "id": "PKri",
+      "code_hash": "a45045b844c7163006c918db12864a52",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Basic slide pipe length are measured (adding ferrule length and slide gap), </span></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Basic slide pipe length are measured (adding ferrule length and slide gap),</span></span>"
           }
         }
       ],
       "console": []
     },
     {
-      "id": "uSFs",
+      "id": "Xref",
       "code_hash": "feceb0a5822d2abc73c6792f5b6137f4",
       "outputs": [
         {
@@ -96,8 +96,8 @@
       "console": []
     },
     {
-      "id": "jXvZ",
-      "code_hash": "8ded642dfe70fb715362ddf3b2f25087",
+      "id": "SFPL",
+      "code_hash": "a1939c140c5b382f583512889ea5e4c2",
       "outputs": [
         {
           "type": "data",
@@ -109,7 +109,7 @@
       "console": []
     },
     {
-      "id": "VMHk",
+      "id": "BYtC",
       "code_hash": "0ff19418a14b3767c15809728e1d7095",
       "outputs": [
         {
@@ -122,7 +122,7 @@
       "console": []
     },
     {
-      "id": "URPa",
+      "id": "RGSE",
       "code_hash": "d89a4abc8ecd7f4c62e06e5abf8ba490",
       "outputs": [
         {
@@ -135,20 +135,20 @@
       "console": []
     },
     {
-      "id": "uWuB",
-      "code_hash": "b64677b84fae21d3841ff2d99796a234",
+      "id": "Kclp",
+      "code_hash": "509072cc738cb6d6d399e60283963f86",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">b2 bow length are calculated as, </span></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">b2 bow length are calculated as,</span></span>"
           }
         }
       ],
       "console": []
     },
     {
-      "id": "BuxJ",
+      "id": "emfo",
       "code_hash": "8ee9c56c1485a51af2520c6cb32d6bb2",
       "outputs": [
         {
@@ -161,7 +161,7 @@
       "console": []
     },
     {
-      "id": "cgDC",
+      "id": "Hstk",
       "code_hash": "3349867ba4b1cd61e3e7181ae89ef8f1",
       "outputs": [
         {
@@ -174,7 +174,7 @@
       "console": []
     },
     {
-      "id": "mxRq",
+      "id": "nWHF",
       "code_hash": "f72f193f4fd4db00fc8c2d4c54aa3014",
       "outputs": [
         {
@@ -187,7 +187,7 @@
       "console": []
     },
     {
-      "id": "gfkD",
+      "id": "iLit",
       "code_hash": "f57d0f1bd244998d2878dcaf3afeb32f",
       "outputs": [
         {
@@ -200,7 +200,7 @@
       "console": []
     },
     {
-      "id": "LuMs",
+      "id": "ZHCJ",
       "code_hash": "cec412f37234a8c66ad2560a1db17c9b",
       "outputs": [
         {
@@ -213,9 +213,81 @@
       "console": []
     },
     {
-      "id": "sgSf",
+      "id": "HCLE",
+      "code_hash": "fe06f5e1bad67e90e7014c2e890a71db",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h3 id=\"b3-slide\">B3 slide</h3>\n<span class=\"paragraph\">The length of b3 slide is calculated for 2-3 combination, then subtract b2 length.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "pEtq",
+      "code_hash": "e9bac68fbd0f58721f3f475b7bad38cb",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "4c3d46fa98559c3e1b0037520b75221d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ylKf",
+      "code_hash": "2f4971ac8c197cac4bd0fad306f04272",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>566.3931515339533</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "LWZE",
+      "code_hash": "2c9bd088822869d95bceb6cc6f51655f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>383.3931515339533</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "rqkY",
       "code_hash": null,
-      "outputs": [],
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
       "console": []
     }
   ]
