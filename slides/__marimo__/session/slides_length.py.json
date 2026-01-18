@@ -70,13 +70,13 @@
       "console": []
     },
     {
-      "id": "PKri",
-      "code_hash": "a45045b844c7163006c918db12864a52",
+      "id": "bRVH",
+      "code_hash": "bdddeef64f1cb4097295bbee7744b5e4",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Basic slide pipe length are measured (adding ferrule length and slide gap),</span></span>"
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Basic slide pipe length are measured (adding ferrule length and slide gap),\nnotice that slide long length is coincide with the future calculated length for F2.</span></span>"
           }
         }
       ],
@@ -84,12 +84,12 @@
     },
     {
       "id": "Xref",
-      "code_hash": "feceb0a5822d2abc73c6792f5b6137f4",
+      "code_hash": "1a4795d31104723423cf6d393063b84a",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/plain": ""
+            "application/json": "[43, 71]"
           }
         }
       ],
@@ -206,14 +206,14 @@
         {
           "type": "data",
           "data": {
-            "text/html": "<pre class='text-xs'>163.01602764994027</pre>"
+            "text/html": "<pre class='text-xs'>169.01602764994027</pre>"
           }
         }
       ],
       "console": []
     },
     {
-      "id": "HCLE",
+      "id": "ROlb",
       "code_hash": "fe06f5e1bad67e90e7014c2e890a71db",
       "outputs": [
         {
@@ -226,7 +226,7 @@
       "console": []
     },
     {
-      "id": "pEtq",
+      "id": "qnkX",
       "code_hash": "e9bac68fbd0f58721f3f475b7bad38cb",
       "outputs": [
         {
@@ -239,7 +239,7 @@
       "console": []
     },
     {
-      "id": "ROlb",
+      "id": "TqIu",
       "code_hash": "4c3d46fa98559c3e1b0037520b75221d",
       "outputs": [
         {
@@ -252,7 +252,7 @@
       "console": []
     },
     {
-      "id": "ylKf",
+      "id": "Vxnm",
       "code_hash": "2f4971ac8c197cac4bd0fad306f04272",
       "outputs": [
         {
@@ -265,21 +265,34 @@
       "console": []
     },
     {
-      "id": "LWZE",
+      "id": "DnEU",
       "code_hash": "2c9bd088822869d95bceb6cc6f51655f",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/html": "<pre class='text-xs'>383.3931515339533</pre>"
+            "text/html": "<pre class='text-xs'>389.3931515339533</pre>"
           }
         }
       ],
       "console": []
     },
     {
-      "id": "rqkY",
-      "code_hash": null,
+      "id": "tqnN",
+      "code_hash": "a84cd47d9a8ea4ea6decd170a1ecabd8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"f2-slide\">F2 slide</h2>\n<span class=\"paragraph\">For F2, use same bow as b2 , then calculate length for slide tubes.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ulZA",
+      "code_hash": "9c5ad1fa18a46aab562cf36142998084",
       "outputs": [
         {
           "type": "data",
@@ -288,6 +301,77 @@
           }
         }
       ],
+      "console": []
+    },
+    {
+      "id": "PDsE",
+      "code_hash": "4b1b106fd29a3c13363a4de3cf0c7e7e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>71</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "YqBF",
+      "code_hash": "bb0f31ea29fd84cba3015f30b6e1b14e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>71</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PNdg",
+      "code_hash": "615064cf0c70895b3e3e61d565e7c8e8",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"f1-slide\">F1 slide</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "rjhf",
+      "code_hash": "c3d54cc08dfa925b24a6654361e7ff49",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "aYZc",
+      "code_hash": "74c3337aef6b413a00f476d4b121a17c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>284.35470353325366</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "jgLB",
+      "code_hash": null,
+      "outputs": [],
       "console": []
     }
   ]

@@ -24,7 +24,7 @@ def _(mo):
 def _():
     bopen = 9 * 304.8 * 1.03 # 3% longer than 9 ft
     fopen = 12 * 304.8 * 1.03 # 3% longer than 12 ft
-    return (bopen,)
+    return bopen, fopen
 
 
 @app.cell(hide_code=True)
@@ -41,10 +41,11 @@ def _():
     return (portlen,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     Basic slide pipe length are measured (adding ferrule length and slide gap),
+    notice that slide long length is coincide with the future calculated length for F2.
     """)
     return
 
@@ -52,7 +53,9 @@ def _(mo):
 @app.cell
 def _():
     slide_short = 36 + 6 + 1
-    slide_long = 67 + 6 + 1
+    slide_long = 67 + 6 + 1 -3
+
+    slide_short, slide_long
     return slide_long, slide_short
 
 
@@ -91,7 +94,7 @@ def _(mo):
 def _(b2_len, portlen, slide_short):
     b2_bow = b2_len - portlen - 2 * slide_short
     b2_bow
-    return
+    return (b2_bow,)
 
 
 @app.cell(hide_code=True)
@@ -155,6 +158,56 @@ def _(b23_len, b2_len):
 def _(b3_len, portlen, slide_long):
     b3_bow = b3_len - portlen - 2*slide_long
     b3_bow
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## F2 slide
+
+    For F2, use same bow as b2 , then calculate length for slide tubes.
+    """)
+    return
+
+
+@app.cell
+def _(fopen, halftone_ratio):
+    f2_len = fopen * (halftone_ratio-1)
+    return (f2_len,)
+
+
+@app.cell
+def _(b2_bow, f2_len, portlen):
+    f2_slide_len = round((f2_len - b2_bow - portlen)/2)
+    f2_slide_len
+    return
+
+
+@app.cell
+def _(slide_long):
+    slide_long
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    ## F1 slide
+    """)
+    return
+
+
+@app.cell
+def _(fopen, holetone_ratio):
+    f1_len = fopen * (holetone_ratio-1)
+    return (f1_len,)
+
+
+@app.cell
+def _(f1_len, portlen, slide_long):
+    f1_bow = f1_len - slide_long*2 - portlen
+    f1_bow
     return
 
 
