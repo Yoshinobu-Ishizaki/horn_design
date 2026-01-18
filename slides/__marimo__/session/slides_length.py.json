@@ -370,6 +370,58 @@
     },
     {
       "id": "jgLB",
+      "code_hash": "fdfd9a12615ca7daada60d29b694b23a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"f3-slide\">F3 slide</h2>\n<span class=\"paragraph\">As same as b3 slide, its length is calculated for 2-3 combination. </span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "rJnq",
+      "code_hash": "e9d6739234ca77fc788cfde64ac796ae",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "dBFb",
+      "code_hash": "f5c3e15b48b4ce41e57e0bb1e76c526b",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "fDUg",
+      "code_hash": "1722f6cea2f6996e852877be7fe91661",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre class='text-xs'>578.1908687119377</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RSUM",
       "code_hash": null,
       "outputs": [],
       "console": []
