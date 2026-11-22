@@ -133,7 +133,7 @@ td.l, th.l { text-align: left; }
       <div class="chart" id="cF"></div>
     </figure>
     <details>
-      <summary>数値の表を見る</summary>
+      <summary>数値の表を見る(第1倍音=ペダルは表だけに載せる。平均律から大きく外れる)</summary>
       <div class="two" id="tables"></div>
     </details>
   </section>
@@ -284,7 +284,7 @@ function centsChart(id, key, rel = false) {
   const { svg, tip, iw, ih } = frame(host, W, H, m);
   const refN = META.ref[key];
   const sets = SERIES.map((s) => {
-    const arr = DATA.cents[`${s.key}_${key}`];
+    const arr = DATA.cents[`${s.key}_${key}`].filter((p) => p.n >= 2);  // 第1倍音(ペダル)は表だけに載せる
     if (!rel) return arr;
     const r = arr.find((p) => p.n === refN).c;
     return arr.map((p) => ({ ...p, c: Math.round((p.c - r) * 10) / 10 }));

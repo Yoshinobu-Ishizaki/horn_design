@@ -1,5 +1,6 @@
 Bb horn (cents vs equal temperament, A=442)
  n  note     bell01 Hz  cents |  RefHorn Hz  cents | diff
+ 1  Bb,       44.33 -481.1 |     45.05 -453.2 |  -27.8
  2  Bb       117.12   +0.7 |    119.29  +32.6 |  -31.8
  3  f        175.89   +4.8 |    177.94  +24.9 |  -20.1
  4  bb       236.59  +18.0 |    235.76  +11.9 |   +6.1
@@ -18,6 +19,7 @@ Bb horn (cents vs equal temperament, A=442)
 
 F horn (cents vs equal temperament, A=442)
  n  note     bell01 Hz  cents |  RefHorn Hz  cents | diff
+ 1  F,        29.42 -691.3 |     29.75 -671.6 |  -19.7
  2  F         85.90  -36.0 |     86.80  -17.8 |  -18.1
  3  c        132.06   +8.5 |    133.80  +31.2 |  -22.7
  4  f        176.85  +14.2 |    178.14  +26.7 |  -12.5

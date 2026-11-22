@@ -121,12 +121,10 @@ def peaks(men: Path) -> np.ndarray:
 
 
 def cents_vs_series(freqs: np.ndarray, key: str) -> list[tuple[int, str, float, float]]:
-    """倍音番号 n(ピークの低い順に 1, 2, …)、目標の平均律の音、周波数、セント。n=1(ペダル)は除く。"""
+    """倍音番号 n(ピークの低い順に 1, 2, …)、目標の平均律の音、周波数、セント。n=1(ペダル)も含む。"""
     root = ROOTS[key]
     out = []
     for n, f in enumerate(freqs, start=1):
-        if n < 2:
-            continue
         k = round(12 * math.log2(n * root / A4))  # A4 からの半音数(n 倍音に最も近い平均律の音)
         target = A4 * 2 ** (k / 12)
         name = helmholtz((k + 9) % 12, 4 + (k + 9) // 12)
