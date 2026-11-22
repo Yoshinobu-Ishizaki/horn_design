@@ -13,6 +13,8 @@
 | 5 | 2026-11-23 01:08:50 (epoch 1795363730) | 今の状態で 03 のレポートを一度作って表示 | 候補 c(result_c.json)で `intonation.py`・`report.py`・`report_template.html`(bell02 から写す)。Artifact https://claude.ai/artifact/Uys5XQ6p46espiMD7XoVHM 。Bb 全長 2743.4、Bb の f' +17.0、F の f' +29.7(Bb + 12.7)。摂動は径の最大 +9.1%(L 667)。フレアは L 50 で ⌀145.7(bell01 141.0)、150 で ⌀66.5(60.2)。ピークの高さは RefHorn と ±0.5 dB 以内 |
 | 6 | 2026-11-23 01:29:02 (epoch 1795364942) | この 03 を 01 と RefBell と比べるように viewer へ送る | `cad/bell03/`(cad/bell02 の tools・ocp を写して候補 c の値に、D12_EXTRA = 0)。1番管 609.365 mm、**BRANCH_DRI = 58.06** で隙間 1.60 mm、渦巻きをやめる点 312.2、末端の直線 200.6。板厚付きも valid。`cad/bell03/tools/compare.py`(ベルの名前を引数で選ぶ。RefBell の DXF は jigs/*_seat/input/*_bell_assy.dxf を探す)で bell03(紫)・bell01(金)・RefBell(青)を設計の座標で重ねて表示 |
 | 7 | 2026-11-23 01:34:03 (epoch 1795365243) | 03 を採用。今後ベルは 03 を使う | CLAUDE.md に、ベルは bell03 を使うこと、組立の基本姿勢(+15°)は cad/bell03 の `ASSEMBLY_ROT_Z` を記録。bell01・bell02 は比較用 |
+| 8 | 時刻不明(直前 epoch 1795365243、直後 epoch 1795365847) | 将来的に RefBell への参照はできるようにする | `src/bope_claude_cad/refs.py`(`refbell()`、DXF は HORN_REFBELL_DXF か jigs/*_seat/input/*_bell_assy.dxf を実行時に探す)。bell01・bell02・bell03 の比較スクリプトをこれに(`ceb0cf2`) |
+| 9 | 2026-11-23 01:44:07 (epoch 1795365847) | 1番管とベルの表面最近接距離は 1.4 に。03 のメンズールの作成方法はレポート(md)になっているか | **BRANCH_DRI = 57.28** で 1.40 mm(板厚付きソリッドの 3D 距離 1.4019)。末端の直線 200.3、末端は組立姿勢で (216.6, 303.9)。Viewer に表示。作り方のレポートはなかったので `README.md` を作成(bell02 から変えたこと、探索の方法、結果、採用値、CAD への反映、再現手順) |
 
 ## 経過
 
