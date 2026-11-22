@@ -60,6 +60,16 @@ def read_centerline(path: Path, start=(0.0, 0.0)) -> Wire:
     return Wire(edges)
 
 
+def centerline() -> Wire:
+    """芯線は tools/make_centerline.py の寸法から直接作る(渦巻きを含むので、DXF は参考)。"""
+    import sys
+
+    sys.path.insert(0, str(WD / "tools"))
+    from make_centerline import build_wire
+
+    return build_wire()
+
+
 def read_ld(path: Path) -> tuple[np.ndarray, np.ndarray]:
     a = np.loadtxt(path, delimiter=",", skiprows=1)
     return a[:, 0], a[:, 1]
@@ -72,7 +82,7 @@ def main() -> None:
     ap.add_argument("--wall", type=float, default=0.0, help="外向きの板厚 (mm)。0 はサーフェスだけ")
     a = ap.parse_args()
 
-    cl = read_centerline(CTR_DXF)
+    cl = centerline()
     L, D = read_ld(LD_CSV)
     shell, prof = variable_pipe_law(cl, L, D)
     print(f"centerline {cl.length:.3f} mm, table L {L[0]:.0f}..{L[-1]:.0f}, end L {prof.l_end:.3f} "

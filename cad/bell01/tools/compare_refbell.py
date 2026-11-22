@@ -21,7 +21,7 @@ import numpy as np  # noqa: E402
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / ".claude/skills/claude_cad_vss/scripts"))
 sys.path.insert(0, str(ROOT / "cad/bell01/ocp"))
-from bell01_surface import CTR_DXF, LD_CSV, read_centerline, read_ld  # noqa: E402
+from bell01_surface import LD_CSV, centerline, read_ld  # noqa: E402
 from bell_from_dxf import build_centerline, read_table  # noqa: E402
 
 from bope_claude_cad.vss import fit_profile, variable_pipe_law  # noqa: E402
@@ -45,13 +45,26 @@ def outline(cl, prof, n=600):
     return np.array(pts), np.array(left), np.array(right)
 
 
+def inner_disk(cl, prof, n=4000):
+    """巻きの内側に接する円(芯線の平面)。中心は make_centerline の C、半径は内径のシルエットまでの最短距離。"""
+    sys.path.insert(0, str(ROOT / "cad/bell01/tools"))
+    from make_centerline import geometry
+
+    c = geometry()["c"]
+    best = np.inf
+    for s in np.linspace(0, prof.l_end, n):
+        p = cl.position_at(s / cl.length)
+        best = min(best, float(np.hypot(p.X - c[0], p.Y - c[1])) - float(prof(s)) / 2)
+    return float(c[0]), float(c[1]), best
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true")
     a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
 
-    cl_b = read_centerline(CTR_DXF)
+    cl_b = centerline()
     L_b, D_b = read_ld(LD_CSV)
     prof_b = fit_profile(L_b, D_b, cl_b.length)
 
@@ -111,12 +124,18 @@ def main() -> None:
 
         from bope_claude_cad.viewer import show
 
+        from build123d import Circle, Pos
+
         bore_b, _ = variable_pipe_law(cl_b, L_b, D_b)
         bore_h, _ = variable_pipe_law(cl_h, L_h, D_h)
-        show(bore_b, cl_b, bore_h, cl_h,
-             names=["bell01_bore", "bell01_centerline", "refbell_bore", "refbell_centerline"],
-             # bell01: 真鍮の金色と赤い芯線、RefBell: 青と水色の芯線。重なりが見えるよう半透明
-             colors=["#e0a020", "#e02020", "#2070e0", "#00b0d0"], alphas=[0.55, 1.0, 0.55, 1.0],
+        cx, cy, ri = inner_disk(cl_b, prof_b)
+        disk = Pos(cx, cy, 0) * Circle(ri).face()
+        print(f"inner disk (bell01): centre ({cx:.3f}, {cy:.3f}) D {2 * ri:.3f}")
+        show(bore_b, cl_b, bore_h, cl_h, disk,
+             names=["bell01_bore", "bell01_centerline", "refbell_bore", "refbell_centerline", "bell01_inner_disk"],
+             # bell01: 真鍮の金色と赤い芯線、RefBell: 青と水色の芯線、内側の円: 緑。重なりが見えるよう半透明
+             colors=["#e0a020", "#e02020", "#2070e0", "#00b0d0", "#30c050"],
+             alphas=[0.55, 1.0, 0.55, 1.0, 0.5],
              reset_camera=Camera.KEEP, tab="tree",
              # 金属表示(metalness=1)はビューアに残り、色が灰色に見えるので、既定の材質に戻す
              metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1)
