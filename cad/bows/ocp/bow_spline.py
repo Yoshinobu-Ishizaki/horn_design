@@ -151,13 +151,15 @@ def reference_separation(cfg: Cfg):
     return separation(cfg, ref[::4], s[::4])
 
 
-def solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3):
+def solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3, gap: float | None = None):
     ref = reference_points(cfg)
     tree = cKDTree(ref)
     v0 = cfg.v0
     n = cfg.n
     scale = np.concatenate([np.maximum(cfg.L0, 10.0), np.abs(cfg.K0[cfg.arc])])
-    sep_target = min(reference_separation(cfg), 20.0) - 0.05  # 今より管どうしを近づけない(2 本の直線のピッチ 20 も上限)
+    # 管どうしの距離の下限(中心線の間隔)。gap を指定すると、表面どうしの最近接距離 gap(= 間隔 - 外径 12.8)以上にする。
+    # 指定しなければ、今より近づけない(2 本の直線のピッチ 20 も上限)。
+    sep_target = (bows.OD + gap + 0.01) if gap is not None else min(reference_separation(cfg), 20.0) - 0.05  # gap の 0.01 は、やわらかい罰則の分の余裕
 
     def resid(v):
         s, k, th, xy = integrate(cfg, v, w)
@@ -166,7 +168,7 @@ def solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3):
         d1 = tree.query(xy[::8])[0] * wshape
         d2 = cKDTree(xy).query(ref[::40])[0] * wshape
         sep = separation(cfg, xy[::8], s[::8], n_leg=8)
-        return np.concatenate([c, dv * 3.0, d1, d2, [max(0.0, sep_target - sep) * 50.0]])
+        return np.concatenate([c, dv * 3.0, d1, d2, [max(0.0, sep_target - sep) * 300.0]])
 
     # 長さ: 円弧は今の 0.3〜3 倍、直線は 0〜max(3 倍, 30)。曲率: 同じ符号で、今の 0.2 倍〜(全体の最小曲げ半径 = cap)
     lo_L = np.where(cfg.arc, 0.3 * cfg.L0, 0.0)
@@ -214,6 +216,16 @@ def spline_edge(cfg: Cfg, v, w=W_DEFAULT, n_pts=None):
     return Edge(BRepBuilderAPI_MakeEdge(crv).Edge()), crv
 
 
+def solid_volume(shape, eps=1e-9):
+    """高精度の体積。build123d の .volume は B スプライン面で最大 0.1% ほどずれる。"""
+    from OCP.BRepGProp import BRepGProp
+    from OCP.GProp import GProp_GProps
+
+    pr = GProp_GProps()
+    BRepGProp.VolumeProperties_s(shape.wrapped, pr, eps)
+    return pr.Mass()
+
+
 def planar_tube(wire, start, heading, r_out=bows.OD / 2, r_in=bows.ID / 2):
     """平面(XY)内の経路に沿った管。副法線を Z に固定して掃引する(経路に変曲点があっても管がねじれない)。"""
     from build123d import Plane, Solid, Wire
@@ -232,12 +244,12 @@ def planar_tube(wire, start, heading, r_out=bows.OD / 2, r_in=bows.ID / 2):
     return one(r_out) - one(r_in)
 
 
-def bow_spline(name: str, w: float = W_DEFAULT):
+def bow_spline(name: str, w: float = W_DEFAULT, gap: float | None = None):
     """戻り値: (管のソリッド, cfg, v, ref, スプライン曲線, 中心線の Wire)。"""
     from build123d import Edge, Vector, Wire
 
     cfg = config(name)
-    v, ref = solve(cfg, w)
+    v, ref = solve(cfg, w, gap=gap)
     e2, crv = spline_edge(cfg, v, w)
     e1 = Edge.make_line((cfg.start[0], cfg.start[1], 0), (cfg.p0[0], cfg.p0[1], 0))
     e3 = Edge.make_line((cfg.p1[0], cfg.p1[1], 0), (cfg.end[0], cfg.end[1], 0))
@@ -257,8 +269,8 @@ def curve_ends(crv):
     return out
 
 
-def report(name: str, w: float = W_DEFAULT, show_viewer: bool = True):
-    solid, cfg, v, ref, crv, wire = bow_spline(name, w)
+def report(name: str, w: float = W_DEFAULT, show_viewer: bool = True, gap: float | None = None):
+    solid, cfg, v, ref, crv, wire = bow_spline(name, w, gap)
     a = analyze(cfg, v, ref, w)
     old = bows.bow(name)
     if show_viewer:
@@ -268,7 +280,7 @@ def report(name: str, w: float = W_DEFAULT, show_viewer: bool = True):
 
         show(old, solid, names=[f"{name}_old", f"{name}_spline"], alphas=[0.25, 1.0], colors=["gray", None], reset_camera=Camera.KEEP)
     legs = cfg.l_in + cfg.l_out
-    print(f"{name} W={w}: valid={solid.is_valid} 体積={solid.volume:.2f} (期待 π(6.4²-6²)·({legs:g}+{a['L']:.3f})={math.pi * (6.4**2 - 6**2) * (legs + a['L']):.2f})")
+    print(f"{name} W={w}: valid={solid.is_valid} 体積(高精度)={solid_volume(solid):.2f} [build123d {solid.volume:.2f}] (期待 π(6.4²-6²)·({legs:g}+{a['L']:.3f})={math.pi * (6.4**2 - 6**2) * (legs + a['L']):.2f})")
     Ln, Kn = unpack(cfg, v)
     print("今の値   長さ =", np.round(cfg.L0, 3), " κ =", np.round(cfg.K0, 5))
     print("新しい値 長さ =", np.round(Ln, 3), " κ =", np.round(Kn, 5), " (半径 %s)" % np.round(1 / np.where(np.abs(Kn) > 1e-9, np.abs(Kn), np.nan), 2))
@@ -281,10 +293,13 @@ def report(name: str, w: float = W_DEFAULT, show_viewer: bool = True):
     print("今の形との距離: 最大 %.3f 平均 %.3f" % (a["dmax"], a["dmean"]))
     print("外形 新 x[%.1f,%.1f] y[%.1f,%.1f] / 旧 x[%.1f,%.1f] y[%.1f,%.1f]" % (bb.min.X, bb.max.X, bb.min.Y, bb.max.Y, bo.min.X, bo.max.X, bo.min.Y, bo.max.Y))
     print("弧長で離れた中心線間隔の最小: 新 %.3f / 旧 %.3f(外径 12.8 以上なら管が重ならない。2 本の直線のピッチ 20 が上限)" % (a["sep"], reference_separation(cfg)))
+    print("自分自身との表面最近接距離(= 間隔 - 12.8): 新 %.3f / 旧 %.3f" % (a["sep"] - bows.OD, reference_separation(cfg) - bows.OD))
     return solid, cfg, v
 
 
 if __name__ == "__main__":
     import sys
 
-    report(sys.argv[1] if len(sys.argv) > 1 else "b1bow", float(sys.argv[2]) if len(sys.argv) > 2 else W_DEFAULT)
+    # 使い方: bow_spline.py 名前 [W] [表面最近接距離 gap]
+    report(sys.argv[1] if len(sys.argv) > 1 else "b1bow", float(sys.argv[2]) if len(sys.argv) > 2 else W_DEFAULT,
+           gap=float(sys.argv[3]) if len(sys.argv) > 3 else None)
