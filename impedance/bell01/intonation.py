@@ -132,14 +132,18 @@ def cents_vs_series(freqs: np.ndarray, key: str) -> list[tuple[int, str, float, 
     return out
 
 
+def build_rows(name: str, rows) -> Path:
+    """行の並びからメンズールを書き、右手補正を掛けたメンズールを返す。"""
+    men = HERE / f"{name}.men"
+    write_men(men, name, list(rows))
+    return with_right_hand(men)
+
+
 def build(name: str, up_rows, tail_rows, extra: float) -> Path:
     rows = list(up_rows)
     if extra > 0:
         rows.append((12.0, 12.0, extra, "F extra"))
-    rows += tail_rows
-    men = HERE / f"{name}.men"
-    write_men(men, name, rows)
-    return with_right_hand(men)
+    return build_rows(name, rows + list(tail_rows))
 
 
 def tune_f(name, up_rows, tail_rows, bb_ref_cents: float) -> tuple[float, Path]:
