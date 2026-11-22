@@ -132,9 +132,9 @@ def cents_vs_series(freqs: np.ndarray, key: str) -> list[tuple[int, str, float, 
     return out
 
 
-def build_rows(name: str, rows) -> Path:
-    """行の並びからメンズールを書き、右手補正を掛けたメンズールを返す。"""
-    men = HERE / f"{name}.men"
+def build_rows(name: str, rows, out_dir: Path = HERE) -> Path:
+    """行の並びからメンズールを書き、右手補正を掛けたメンズールを返す(out_dir に書く)。"""
+    men = Path(out_dir) / f"{name}.men"
     write_men(men, name, list(rows))
     return with_right_hand(men)
 
