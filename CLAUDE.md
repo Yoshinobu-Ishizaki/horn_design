@@ -24,6 +24,7 @@
 ## 作業の置き場所
 
 - 設計の作業は `cad/<名前>/` で行う(名前は最初にユーザーに確認する。`cad/` には FreeCAD のファイルもある)。ビューアに出すモデルのコードは `cad/<名前>/ocp/`。`.py` が増えたら `lib/`・`parts/`・`tools/` に分ける。
+- 管体組立の基本姿勢: bell01(ベル + 1番管)は、設計の座標(リム中心 (0,0)、直管部は +Y)をリム中心まわりに Z 軸で +15°(反時計回り)回した姿勢(`cad/bell01/ocp/bell01_surface.py` の `ASSEMBLY_ROT_Z`)。STEP と表示はこの姿勢で出す。
 - 作業フォルダに `worklog.md` を置き、作業履歴を時刻と一緒に記録する(書式は `.claude/skills/claude_cad_general/references/worklog_template.md`)。時刻は追記時に `date +%s` で取り、JST(`TZ=JST-9 date`)も併記する。推測で書かない。
 
 ## 社内図面の扱い

@@ -23,6 +23,10 @@ ROOT = WD.parent.parent
 CTR_DXF = WD / "bell01-ctr.dxf"
 LD_CSV = WD / "bell01-ld.csv"  # tools/make_mensur.py で作る(元は mensur/bell/bell_20180330_xyrev.csv)
 OUT = ROOT / "output/bell01"
+# 管体組立の基本姿勢: 設計の座標(リム中心 (0,0)、直管部は +Y、巻きは +X 側)を、リム中心まわりに
+# Z 軸で +15°(+Z から見て反時計回り)回す。設計の計算(芯線・メンズール・隙間)は設計の座標のまま行い、
+# STEP 出力と表示のときだけこの姿勢にする。
+ASSEMBLY_ROT_Z = 15.0  # deg
 
 
 def read_centerline(path: Path, start=(0.0, 0.0)) -> Wire:
@@ -163,8 +167,15 @@ def main() -> None:
               f"branch1 faces {len(bwall.faces())} valid {bwall.is_valid}")
         shapes, names = [wall, bwall], [f"bell01_wall_t{a.wall}", f"branch1_wall_t{a.wall}"]
 
-    if a.step:
+    # 組立の基本姿勢に回す(リム中心 (0,0) まわり、Z 軸で ASSEMBLY_ROT_Z)
+    from build123d import Circle, Pos, Rot
 
+    pose = Rot(0, 0, ASSEMBLY_ROT_Z)
+    disk = pose * (Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face())
+    shell, bshell, cl, bcl = (pose * x for x in (shell, bshell, cl, bcl))
+    shapes = [pose * x for x in shapes]
+
+    if a.step:
         OUT.mkdir(parents=True, exist_ok=True)
         export_step(shell, str(OUT / "bell01_bore_surface.step"))
         export_step(bshell, str(OUT / "branch1_bore_surface.step"))
@@ -174,12 +185,10 @@ def main() -> None:
         print(f"STEP -> {OUT}")
 
     if a.show:
-        from build123d import Circle, Pos
         from ocp_vscode import Camera
 
         from bope_claude_cad.viewer import show
 
-        disk = Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face()
         show(
             *shapes, cl, bcl, disk,
             names=[*names, "bell01_centerline", "branch1_centerline", f"inner_disk_D{2 * g['ri']:.0f}"],
