@@ -82,9 +82,10 @@ td.l, th.l { text-align: left; }
   <section>
     <h2>要点</h2>
     <ul class="findings">
-      <li><b>中音域から上は RefHorn とほぼ同じ並び。</b>Bb 管の第4〜12倍音は一様に約 −10 セント低く、これは全長の差(16.5 mm、−10.4 セント相当)なので抜差管で直る。F 管の第5倍音から上は ±10 セント以内。</li>
-      <li><b>最低音域(第2〜4倍音)が RefHorn より低い。</b>Bb 管の第2・第3倍音は −86・−61 セント、F 管の第3倍音(C3)は −72 セント。</li>
-      <li>F 管は F 側の実際の経路がなく、⌀12 の円筒を足して第6・第8倍音の平均が 0 セントになる長さにした近似。比べられるのは倍音どうしの並び。</li>
+      <li><b>f' を基準にすると、bell01 は f(f' のオクターブ下)が低く、オクターブが広い。</b>Bb 管の f は f' より 39.3 セント低い(RefHorn は 17.7 セント高く、オクターブが狭い)。F 管の f も f' より 31.0 セント低い(RefHorn は 9.6 セント高い)。</li>
+      <li><b>f' より上は、RefHorn より f' との差が小さい。</b>Bb 管の bb'(第8倍音)は f' より +8.8 セント(RefHorn は +15.9)、F 管の a'(第10倍音)は −8.0 セント(RefHorn は −0.6)。</li>
+      <li><b>F 管の延長量は 945.8 mm。</b>F 管の f' を Bb 管の f' より 10 セント高くする条件で決めた(前回の第6・第8倍音の平均 0 の条件より 32.6 mm 短い)。RefHorn も同じ条件で 944.1 mm。F 側の実際の経路はなく、⌀12 の円筒を足した近似。</li>
+      <li>a' = 440 Hz 基準では、Bb 管の中音域は RefHorn より一様に約 −10 セント低い。全長の差(16.5 mm)によるもので、抜差管で直る。</li>
     </ul>
   </section>
 
@@ -100,6 +101,19 @@ td.l, th.l { text-align: left; }
       <div class="fighead"><h3>F 管(開放)</h3><div class="legend" data-legend="line"></div></div>
       <div class="chart" id="impF"></div>
       <figcaption id="capF"></figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>f' を基準にした音程差</h2>
+    <p>Bb 管は第6倍音、F 管は第8倍音(どちらも f')のずれを 0 とし、各倍音のずれとの差を示す。f(f' のオクターブ下)が負ならオクターブが広く、正なら狭い。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管(f' = 第6倍音)</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="rBb"></div>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管(f' = 第8倍音)</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="rF"></div>
     </figure>
   </section>
 
@@ -153,7 +167,7 @@ for (const [k, v] of conds) {
   dl.appendChild(d);
 }
 document.getElementById("capF").textContent =
-  `F 管は Bb の経路に ⌀12 の円筒(bell01 ${META.extra.bell01} mm、RefHorn ${META.extra.refhorn} mm)を足した近似。`;
+  `F 管は Bb の経路に ⌀12 の円筒(bell01 ${META.extra.bell01} mm、RefHorn ${META.extra.refhorn} mm)を足した近似。長さは、F 管の f' が Bb 管の f' より ${META.f_above_bb} セント高くなるように決めた。`;
 
 // Legends
 document.querySelectorAll("[data-legend]").forEach((lg) => {
@@ -243,12 +257,18 @@ function impChart(id, key) {
   hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dots.forEach((d) => d.setAttribute("visibility", "hidden")); });
 }
 
-// Cents chart by partial
-function centsChart(id, key) {
+// Cents chart by partial. rel = true: relative to the f' partial (REF) of each instrument.
+function centsChart(id, key, rel = false) {
   const host = document.getElementById(id);
   const W = 860, H = 320, m = { l: 52, r: 12, t: 12, b: 38 };
   const { svg, tip, iw, ih } = frame(host, W, H, m);
-  const sets = SERIES.map((s) => DATA.cents[`${s.key}_${key}`]);
+  const refN = META.ref[key];
+  const sets = SERIES.map((s) => {
+    const arr = DATA.cents[`${s.key}_${key}`];
+    if (!rel) return arr;
+    const r = arr.find((p) => p.n === refN).c;
+    return arr.map((p) => ({ ...p, c: Math.round((p.c - r) * 10) / 10 }));
+  });
   const nmax = Math.max(...sets.flat().map((p) => p.n));
   const cs = sets.flat().map((p) => p.c);
   const lo = Math.min(-100, Math.floor(Math.min(...cs) / 25) * 25), hi = Math.max(100, Math.ceil(Math.max(...cs) / 25) * 25);
@@ -264,7 +284,15 @@ function centsChart(id, key) {
     if (n % 2 === 0 || nmax <= 16) { const t = el("text", { x: X(n), y: m.t + ih + 16, "text-anchor": "middle" }, g); t.textContent = n; }
   }
   const xl = el("text", { x: m.l + iw, y: H - 2, "text-anchor": "end", class: "lbl" }, g); xl.textContent = "倍音番号";
-  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = "セント";
+  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = rel ? "f' との差" : "セント";
+  if (rel) {
+    el("line", { x1: X(refN), x2: X(refN), y1: m.t, y2: m.t + ih, stroke: "var(--zero)", "stroke-dasharray": "2 4" }, g);
+    const t = el("text", { x: X(refN) + 4, y: m.t + 10, class: "lbl" }, g); t.textContent = "f'";
+    if (refN / 2 >= 2) {
+      el("line", { x1: X(refN / 2), x2: X(refN / 2), y1: m.t, y2: m.t + ih, stroke: "var(--zero)", "stroke-dasharray": "2 4" }, g);
+      const u = el("text", { x: X(refN / 2) + 4, y: m.t + 10, class: "lbl" }, g); u.textContent = "f";
+    }
+  }
   SERIES.forEach((s, i) => {
     const d = sets[i].map((p, j) => `${j ? "L" : "M"}${X(p.n).toFixed(1)},${Y(p.c).toFixed(1)}`).join("");
     el("path", { d, fill: "none", stroke: s.color, "stroke-width": 1.2, opacity: 0.55 }, svg);
@@ -279,9 +307,10 @@ function centsChart(id, key) {
       hit.addEventListener("pointerenter", () => {
         const other = sets[1 - i].find((q) => q.n === p.n);
         const a = i === 0 ? p : other, b = i === 0 ? other : p;
+        const unit = rel ? "¢(f' との差)" : "¢";
         let html = `<div><span class="k">第${p.n}倍音</span> ${p.note}</div>`;
-        if (a) html += `<div><span style="color:var(--s1)">●</span> bell01 ${a.f.toFixed(1)} Hz ${fmt(a.c)}¢</div>`;
-        if (b) html += `<div><span style="color:var(--s2)">■</span> RefHorn ${b.f.toFixed(1)} Hz ${fmt(b.c)}¢</div>`;
+        if (a) html += `<div><span style="color:var(--s1)">●</span> bell01 ${a.f.toFixed(1)} Hz ${fmt(a.c)}${unit}</div>`;
+        if (b) html += `<div><span style="color:var(--s2)">■</span> RefHorn ${b.f.toFixed(1)} Hz ${fmt(b.c)}${unit}</div>`;
         if (a && b) html += `<div><span class="k">差</span> ${fmt(a.c - b.c)}¢</div>`;
         tip.innerHTML = html;
         const r = svg.getBoundingClientRect();
@@ -294,6 +323,8 @@ function centsChart(id, key) {
 
 impChart("impBb", "Bb");
 impChart("impF", "F");
+centsChart("rBb", "Bb", true);
+centsChart("rF", "F", true);
 centsChart("cBb", "Bb");
 centsChart("cF", "F");
 
@@ -301,12 +332,13 @@ centsChart("cF", "F");
 const tables = document.getElementById("tables");
 for (const key of ["Bb", "F"]) {
   const a = DATA.cents[`bell01_${key}`], b = DATA.cents[`refhorn_${key}`];
+  const ra = a.find((p) => p.n === META.ref[key]).c, rb = b.find((p) => p.n === META.ref[key]).c;
   const rows = a.map((p) => {
     const q = b.find((x) => x.n === p.n);
-    return `<tr><td>${p.n}</td><td class="l">${p.note}</td><td>${p.f.toFixed(1)}</td><td>${fmt(p.c)}</td><td>${q ? q.f.toFixed(1) : ""}</td><td>${q ? fmt(q.c) : ""}</td><td>${q ? fmt(p.c - q.c) : ""}</td></tr>`;
+    return `<tr><td>${p.n}</td><td class="l">${p.note}</td><td>${p.f.toFixed(1)}</td><td>${fmt(p.c)}</td><td>${fmt(p.c - ra)}</td><td>${q ? q.f.toFixed(1) : ""}</td><td>${q ? fmt(q.c) : ""}</td><td>${q ? fmt(q.c - rb) : ""}</td></tr>`;
   }).join("");
   const d = document.createElement("div");
-  d.innerHTML = `<h3>${key} 管</h3><div class="tablewrap"><table><thead><tr><th>n</th><th class="l">音</th><th>bell01 Hz</th><th>¢</th><th>RefHorn Hz</th><th>¢</th><th>差</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  d.innerHTML = `<h3>${key} 管(f' = 第${META.ref[key]}倍音)</h3><div class="tablewrap"><table><thead><tr><th>n</th><th class="l">音</th><th>bell01 Hz</th><th>¢</th><th>f' 差</th><th>RefHorn Hz</th><th>¢</th><th>f' 差</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   tables.appendChild(d);
 }
 </script>

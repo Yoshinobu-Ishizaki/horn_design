@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from intonation import A4, HAND_L, MAXF, cents_vs_series
+from intonation import A4, F_ABOVE_BB, HAND_L, MAXF, N_MAX, REF_N, cents_vs_series
 
 HERE = Path(__file__).resolve().parent
 CASES = [("bell01", "Bb"), ("refhorn", "Bb"), ("bell01", "F"), ("refhorn", "F")]
@@ -64,6 +64,7 @@ def main() -> None:
         data["cents"][f"{name}_{key}"] = [
             {"n": n, "note": nm, "f": round(float(f), 2), "c": round(float(c), 1)}
             for n, nm, f, c in cents_vs_series(read_res(base.with_suffix(".res")), key)
+            if n <= N_MAX
         ]
     meta = {
         "a4": A4,
@@ -71,6 +72,9 @@ def main() -> None:
         "maxf": MAXF,
         "len": {f"{n}_{k}": round(men_length(HERE / f"{n}_{k}.men"), 1) for n, k in CASES},
         "extra": {k: round(v, 1) for k, v in f_extra().items()},
+        "ref": REF_N,
+        "f_above_bb": F_ABOVE_BB,
+        "nmax": N_MAX,
     }
     tpl = (HERE / "report_template.html").read_text(encoding="utf-8")
     html = tpl.replace("/*DATA*/null", json.dumps(data, separators=(",", ":"))).replace(

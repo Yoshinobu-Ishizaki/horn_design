@@ -5,8 +5,10 @@
   最後は ⌀12.0 の円筒)。RefHorn の T1(1番管にあたる部分)とベルの手前まで。
 - bell01: メンズール関数(cad/bell01/tools/make_mensur.py)の L=1350(⌀12.00)から L=0(リム ⌀300)まで。
 - 比較: RefHorn そのもの(refhornBb000.men)。
-- F 管: 上流と 1番管の間に ⌀12.0 の円筒を足す。長さは、F 管の第6・第8倍音のずれ(セント)の平均が 0 に
-  なるように決める(第7倍音はもともと低いので使わない)。RefHorn も同じ方法で F 管を作る。
+- F 管: 上流と 1番管の間に ⌀12.0 の円筒を足す。長さは、F 管の f'(第8倍音)が Bb 管の f'(第6倍音)より
+  F_ABOVE_BB セント高くなるように決める(F 側の f' を Bb 側より少し高くしておく。低いと楽器として調整しにくい)。
+  RefHorn も同じ方法で F 管を作る。
+- 表示は第 N_MAX 倍音まで。
 - 右手: kanutils の righthand(挿入深さ 220 mm)。メンズールを反転 → XY → 右手補正 → メンズール → 反転。
 
 音程は、各倍音のピーク周波数を、Bb 管なら Bb1、F 管なら F1 の倍音列に最も近い平均律の音(A=440 Hz)と
@@ -37,6 +39,9 @@ A4 = 440.0
 UPSTREAM_END = "T1men"  # RefHorn の、この注記の行から先(T1 + ベル)を bell01 に置き換える
 HAND_L = 220.0  # 右手の挿入深さ (mm)
 MAXF, STEP = 1500.0, 1.0  # calcimp の最高周波数と刻み (Hz)
+F_ABOVE_BB = 10.0  # F 管の f'(第8倍音)を Bb 管の f'(第6倍音)より何セント高くするか
+REF_N = {"Bb": 6, "F": 8}  # f' にあたる倍音
+N_MAX = 16  # 表示する倍音の上限
 NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 ROOTS = {"Bb": A4 * 2 ** (-35 / 12), "F": A4 * 2 ** (-40 / 12)}  # Bb1 = 58.27 Hz, F1 = 43.65 Hz
 
@@ -128,12 +133,12 @@ def build(name: str, up_rows, tail_rows, extra: float) -> Path:
     return with_right_hand(men)
 
 
-def tune_f(name, up_rows, tail_rows) -> tuple[float, Path]:
-    """F 管の円筒の長さを、第6・第8倍音のずれの平均が 0 になるように決める。"""
+def tune_f(name, up_rows, tail_rows, bb_ref_cents: float) -> tuple[float, Path]:
+    """F 管の円筒の長さを、F 管の f'(第8倍音)が bb_ref_cents + F_ABOVE_BB セントになるように決める。"""
     def err(extra):
         men = build(name, up_rows, tail_rows, extra)
         c = {n: ct for n, _, _, ct in cents_vs_series(peaks(men), "F")}
-        return (c[6] + c[8]) / 2
+        return c[REF_N["F"]] - (bb_ref_cents + F_ABOVE_BB)
 
     extra = brentq(err, 700, 1300, xtol=0.05)
     return extra, build(name, up_rows, tail_rows, extra)
@@ -151,7 +156,8 @@ def main() -> None:
     res = {}
     for name, tail in [("bell01", b01), ("refhorn", hr_tail)]:
         res[(name, "Bb")] = cents_vs_series(peaks(build(f"{name}_Bb", up, tail, 0.0)), "Bb")
-        extra, men = tune_f(f"{name}_F", up, tail)
+        bb_ref = next(c for n, _, _, c in res[(name, "Bb")] if n == REF_N["Bb"])
+        extra, men = tune_f(f"{name}_F", up, tail, bb_ref)
         res[(name, "F")] = cents_vs_series(peaks(men), "F")
         print(f"{name}: F extra cylinder {extra:.1f} mm")
 
@@ -161,7 +167,7 @@ def main() -> None:
         b = {n: (nm, f, c) for n, nm, f, c in res[("refhorn", key)]}
         lines.append(f"\n{key} horn (cents vs equal temperament, A={A4:.0f})")
         lines.append(" n  note     bell01 Hz  cents |  RefHorn Hz  cents | diff")
-        for n in sorted(set(a) & set(b)):
+        for n in sorted(k for k in set(a) & set(b) if k <= N_MAX):
             lines.append(f"{n:2d}  {a[n][0]:5s} {a[n][1]:9.2f} {a[n][2]:+6.1f} | {b[n][1]:9.2f} {b[n][2]:+6.1f} | "
                          f"{a[n][2] - b[n][2]:+6.1f}")
     text = "\n".join(lines)
