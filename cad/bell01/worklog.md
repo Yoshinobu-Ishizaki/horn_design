@@ -10,9 +10,10 @@
 | 1 | 2026-11-22 14:36:52 (epoch 1795325812) | ホルンのベルを `cad/bell01` で設計する。旧 FreeCAD ファイルを移し、ベルの芯線を `bell01-ctr.dxf` に出す | `cad/bell_01.FCStd`(と FCBak)を `cad/bell01/` へ移動。芯線はスケッチ `Sketch`(Label `CenterPath`)。直線 180 + 円弧 R300(104.720)・R165(230.383)・R140(171.042)・R152(154.490)、全長 840.635 mm。XY 平面、始点 (0,0)(R150 のリム側。Sketch002)、終点 (266.910, 135.336)(R8 の細い側。Sketch001)。`tools/extract_centerline.py` で LINE・ARC のまま DXF に出し、読み戻して長さと半径の一致を確認 |
 | 2 | 2026-11-22 14:48:03 (epoch 1795326483) | L-D を `mensur/bell` から取る(`bell_20180330_p10.csv` が FreeCAD と一致するはず)。vss スキルで作る | `make_bell.ipynb` は D = a/(x+b)^p + c(p=0.83081841、D(0)=300、リム角 -80°、D(850)=16、D(120)=65)。p10 は FreeCAD の Spreadsheet001 と同じ。FreeCAD の Face_Pipe は表の点で一致(L≥10)、リム付近は粗い(L=5 で 265.9 に対し式は 253.1)。p10 をスプラインにすると 1 mm 表から最大 1.04 mm(L=3)ずれる。確認の結果: **1 mm 表 `bell_20180330_xyrev.csv` を使う**、**芯線 840.635 で切る**(表は 850。終点 D=16.125、FreeCAD と同じ)。`ocp/bell01_surface.py`(`variable_pipe_law`)でサーフェス 5 面、面積比 1.000001、直径誤差 0.0000 mm、体積比 1.000001。Viewer に表示、STEP `output/bell01/bell01_bore_surface.step`(95 KB) |
 | 3 | 2026-11-22 14:56:33 (epoch 1795326993) | 板厚 0.4(外向き)の前に 1st branch を足す(同じメンズール関数で D=12.00 まで、芯線はベル最後の曲率に従い、フレアから離れるよう内側へ)。その前に RefBell と比べる | メンズール関数を再現: a=3858.925675, b=21.821685, c=2.084303(1 mm 表と 2e-5 mm で一致)。D=12.00 は L=1289.111、branch 長 448.476。`tools/compare_refbell.py` で RefBell と比較(社内図面のため、数値と図は `output/bell01/compare_refbell/` だけに置く)。R152 のまま延ばすとベルの直管部に当たる(`output/bell01/branch_study.png`)。branch の芯線の決め方をユーザーに確認中 |
+| 4 | 2026-11-22 15:00:36 (epoch 1795327236) | 幅が広く高さが低いので、芯線を RefBell のような見た目に直す(メンズールはそのまま) | 回答: ベル形状は芯線で直す、branch は「R152 から始めて徐々に締まる渦巻き」、隙間は後で指定。remote が PUBLIC なので RefBell の芯線を写さず、直線 + 円弧4つを RefBell の全体の比率(高さ・幅・終点の位置と向き)に当てはめて丸めた: 直線 240、R215/15°、R145/49°、R150/114°、R130/53.722°(全長 840.635 で決まる)。終点 (250.097, 152.270)、向き -141.72°。`tools/make_centerline.py` で `bell01-ctr.dxf` を作り直し、旧版は `bell01-ctr-freecad.dxf`。サーフェスの直径誤差 0.0001 mm、体積比 0.999999。Viewer と STEP を更新 |
 
 ## 経過
 
 - 開始 epoch 1795325812
 - 形状: FCStd には Face_Pipe(サーフェス)・Offset_Pipe(板厚付き)と、L-D 表らしい Spreadsheet001 がある(未確認)
-- 未決: 板厚(ソリッドにするか、厚み)
+- 未決: branch と ベルの隙間(ユーザーが後で指定)。その後に板厚 0.4(外向き)
