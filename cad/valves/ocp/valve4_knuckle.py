@@ -69,16 +69,30 @@ def exit_axis_world(theta_deg: float, psi_deg: float, hole_angle: float = HOLE_A
     return (lx * d1[0] + ly * d2[0], lx * d1[1] + ly * d2[1], lz)
 
 
-def twisted_knuckle(theta=None, psi=None, pull=PULL_OUT):
-    """pull: 孔軸に沿って外へ抜く量(0 なら FreeCAD の枝管と同じ差し込み位置。ケースと干渉する)。"""
+def twisted_knuckle(theta=None, psi=None, pull=PULL_OUT, z=Z_F1):
+    """pull: 孔軸に沿って外へ抜く量(0 なら FreeCAD の枝管と同じ差し込み位置。ケースと干渉する)。z: 孔軸の高さ(1 階 17、2 階 34)。"""
     th, ps = solve()[:2] if theta is None else (theta, psi)
-    return Pos(X_VALVE4, 0, Z_F1) * Rot(0, 0, HOLE_ANGLE) * Pos(pull, 0, 0) * Rot(ps, 0, 0) * knuckle(th)
+    return Pos(X_VALVE4, 0, z) * Rot(0, 0, HOLE_ANGLE) * Pos(pull, 0, 0) * Rot(ps, 0, 0) * knuckle(th)
 
 
 # 第 4 の 2 階(B 階、z=34)の左側(第 1 側)の孔 135° に、45° の枝管を差し込み、第 1 の枝管とつなぐ。
 Z_F2 = 34.0
 CONNECT_ANGLE = 135.0  # 1 本目の方向。折れは反時計回りに 45° → 2 本目は -X 向き(135° + 45° = 180°)
 CONNECT_PULL = 0.0  # FreeCAD の枝管と同じ差し込み位置。2 本目の端面が x = 70 - 17.5 = 52.5 で、第 1 の枝管の端面(35 + 17.5)と突き合う
+
+
+# 第 4 の 2 階・左下の孔(225°)の枝管。1 階の真下の枝管と同じ折れ角 52°(ねじった枝管)。
+# 隣接する第 1 の枝管(L1_225)との表面距離は 12.2 - 出口の x オフセット。0.8 以上にするため、出口の x を第 4 中心から 0.5 刻みの -11 にする(距離 1.2)。
+# 折れの内側の境界線が R13 に触れない限界の抜き量が √2(オフセット 11)以下になる折れ角は θ ≤ 約 52.3°(53° は 1.491 で足りない)。
+# なお折れ角 60°(YZ 傾き 45°)では、限界の抜き量 2.2371(オフセット 11.58)で表面距離が 0.618 にしかならなかった。
+THETA_2F = 52.0
+EXIT_X_OFFSET_2F = 11.0
+PULL_OUT_2F = (EXIT_X_OFFSET_2F - 10.0) * math.sqrt(2)
+
+
+def twisted_knuckle_2f():
+    th, ps = solve(THETA_2F, "xy")[:2]  # XY 投影 (0,-1)。YZ 傾きは 29.46°
+    return twisted_knuckle(th, ps, PULL_OUT_2F, Z_F2)
 
 
 def connect_knuckle(z: float = Z_F2, pull: float = CONNECT_PULL):
@@ -109,8 +123,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), connect_knuckle(Z_F2), connect_knuckle(Z_F1), mirrored_twisted_knuckle()]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted"]
+    parts += [twisted_knuckle(th, ps), connect_knuckle(Z_F2), connect_knuckle(Z_F1), mirrored_twisted_knuckle(), twisted_knuckle_2f()]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted", "valve4_knuckle_F2_225_twisted60"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 
