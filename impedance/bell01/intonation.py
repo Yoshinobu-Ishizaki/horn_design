@@ -42,7 +42,15 @@ MAXF, STEP = 1500.0, 1.0  # calcimp の最高周波数と刻み (Hz)
 F_ABOVE_BB = 10.0  # F 管の f'(第8倍音)を Bb 管の f'(第6倍音)より何セント高くするか
 REF_N = {"Bb": 6, "F": 8}  # f' にあたる倍音
 N_MAX = 16  # 表示する倍音の上限
-NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
+NOTE = ["c", "c#", "d", "eb", "e", "f", "f#", "g", "g#", "a", "bb", "b"]
+
+
+def helmholtz(pc: int, octave: int) -> str:
+    """ヘルムホルツ式の音名(c' = C4、c = C3、C = C2、C, = C1)。pc は c からの半音数。"""
+    n = NOTE[pc]
+    if octave >= 3:
+        return n + "'" * (octave - 3)
+    return n[0].upper() + n[1:] + "," * (2 - octave)
 ROOTS = {"Bb": A4 * 2 ** (-35 / 12), "F": A4 * 2 ** (-40 / 12)}  # Bb1, F1(A4 = 442 で 58.54 Hz、43.85 Hz)
 
 
@@ -119,7 +127,7 @@ def cents_vs_series(freqs: np.ndarray, key: str) -> list[tuple[int, str, float, 
             continue
         k = round(12 * math.log2(n * root / A4))  # A4 からの半音数(n 倍音に最も近い平均律の音)
         target = A4 * 2 ** (k / 12)
-        name = NOTE[(k + 9) % 12] + str(4 + (k + 9) // 12)
+        name = helmholtz((k + 9) % 12, 4 + (k + 9) // 12)
         out.append((n, name, f, 1200 * math.log2(f / target)))
     return out
 

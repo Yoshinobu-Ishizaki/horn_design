@@ -14,6 +14,8 @@
 - 2026-11-22: Bb 管の音程(a' = 442 Hz、右手 220 mm、impedance/bell01/tune_mensur.py)に合わせて、
   第2倍音 -20、第3倍音 -10、第6倍音 F4 +16 セントになる p=3.0515、ANG=-68.005°、Q=-0.009141、
   D=12 の L = 1332.66(Bb の全長が 17.3 mm 短くなる)。前の形からの差は直径の二乗平均で 0.85 mm。
+- 2026-11-22: f'(Bb 管の第6倍音)に対して、第2倍音 -20、第3倍音 -10 セント(f' は +16)。
+  p=2.3619、ANG=-68.759°、Q=-0.006187、D=12 の L = 1333.49。前の形からの差は 0.76 mm。
 
     uv run python cad/bell01/tools/make_mensur.py [out.csv]
 """
@@ -29,10 +31,10 @@ from scipy.optimize import brentq
 
 WD = Path(__file__).resolve().parent.parent
 DF = 300.0  # リム径 (mm)
-X_END, D_END = 1332.66, 12.0  # 1番管の終わりの L (mm) と径 (mm)
-P = 3.0515  # 形の指数
-ANG = -68.005  # リムの開き角 (deg)
-Q = -0.009141  # 1次の項の係数 (mm/mm)
+X_END, D_END = 1333.49, 12.0  # 1番管の終わりの L (mm) と径 (mm)
+P = 2.3619  # 形の指数
+ANG = -68.759  # リムの開き角 (deg)
+Q = -0.006187  # 1次の項の係数 (mm/mm)
 
 
 def coefficients(p: float = P, ang: float = ANG, q: float = Q, df: float = DF, xe: float = X_END, de: float = D_END):

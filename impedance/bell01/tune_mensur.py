@@ -22,7 +22,9 @@ sys.path.insert(0, str(HERE.parents[1] / "cad/bell01/tools"))
 import intonation as I  # noqa: E402
 from make_mensur import ANG, P, Q, X_END, diameter  # noqa: E402
 
-TARGET = {2: -20.0, 3: -10.0, 6: 16.0}  # 倍音: セント(Bb 管)
+F_PRIME = 16.0  # Bb 管の f'(第6倍音)の目標(セント)
+REL = {2: -20.0, 3: -10.0}  # f' に対する目標(セント)
+TARGET = {6: F_PRIME, **{n: F_PRIME + r for n, r in REL.items()}}  # 倍音: セント(Bb 管)
 SHAPE_W = 0.02  # 形のずれ (mm rms) の重み。セント² に足す
 L_CMP = np.linspace(0, 840, 400)  # 形のずれを測る範囲(ベル)
 D_NOW = diameter(L_CMP)
