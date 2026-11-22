@@ -11,6 +11,9 @@
 - 2026-11-22: Q を足して RefBell に似せた。p=6、ANG=-67°、Q=-0.0227、D(850)=16。D=12 は L=1022.7。
 - 2026-11-22: D=12 を L=1350 にした(1番管を長く)。D(850)=16 の条件は外し、L≤840 で RefBell に当てはめた:
   p=4.025、ANG=-67.41°、Q=-0.01165(差はリム以外 -1.5〜+2.2 mm、ベルの終点 D=18.37)。音程は後で calcimp で確かめる。
+- 2026-11-22: Bb 管の音程(a' = 442 Hz、右手 220 mm、impedance/bell01/tune_mensur.py)に合わせて、
+  第2倍音 -20、第3倍音 -10、第6倍音 F4 +16 セントになる p=3.0515、ANG=-68.005°、Q=-0.009141、
+  D=12 の L = 1332.66(Bb の全長が 17.3 mm 短くなる)。前の形からの差は直径の二乗平均で 0.85 mm。
 
     uv run python cad/bell01/tools/make_mensur.py [out.csv]
 """
@@ -26,10 +29,10 @@ from scipy.optimize import brentq
 
 WD = Path(__file__).resolve().parent.parent
 DF = 300.0  # リム径 (mm)
-X_END, D_END = 1350.0, 12.0  # 1番管の終わりの L (mm) と径 (mm)
-P = 4.025  # 形の指数
-ANG = -67.41  # リムの開き角 (deg)
-Q = -0.01165  # 1次の項の係数 (mm/mm)
+X_END, D_END = 1332.66, 12.0  # 1番管の終わりの L (mm) と径 (mm)
+P = 3.0515  # 形の指数
+ANG = -68.005  # リムの開き角 (deg)
+Q = -0.009141  # 1次の項の係数 (mm/mm)
 
 
 def coefficients(p: float = P, ang: float = ANG, q: float = Q, df: float = DF, xe: float = X_END, de: float = D_END):
@@ -48,8 +51,8 @@ def coefficients(p: float = P, ang: float = ANG, q: float = Q, df: float = DF, x
     return a, b, c
 
 
-def diameter(x, p: float = P, ang: float = ANG, q: float = Q):
-    a, b, c = coefficients(p, ang, q)
+def diameter(x, p: float = P, ang: float = ANG, q: float = Q, xe: float = X_END):
+    a, b, c = coefficients(p, ang, q, xe=xe)
     x = np.asarray(x, dtype=float)
     return a / (x + b) ** p + c + q * x
 

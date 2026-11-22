@@ -12,7 +12,7 @@
 - 右手: kanutils の righthand(挿入深さ 220 mm)。メンズールを反転 → XY → 右手補正 → メンズール → 反転。
 
 音程は、各倍音のピーク周波数を、Bb 管なら Bb1、F 管なら F1 の倍音列に最も近い平均律の音(A=440 Hz)と
-比べたセント。calcimp の温度は既定の 24 ℃。
+比べたセント(A4 = 442 Hz)。calcimp の温度は既定の 24 ℃。
 
     uv run python impedance/bell01/intonation.py
 """
@@ -35,7 +35,7 @@ RefHorn = sorted(KAN.glob("sample/*Bb000.men"))[0]  # 上流のサンプル(kanu
 sys.path.insert(0, str(ROOT / "cad/bell01/tools"))
 from make_mensur import X_END, diameter  # noqa: E402
 
-A4 = 440.0
+A4 = 442.0
 UPSTREAM_END = "T1men"  # RefHorn の、この注記の行から先(T1 + ベル)を bell01 に置き換える
 HAND_L = 220.0  # 右手の挿入深さ (mm)
 MAXF, STEP = 1500.0, 1.0  # calcimp の最高周波数と刻み (Hz)
@@ -43,7 +43,7 @@ F_ABOVE_BB = 10.0  # F 管の f'(第8倍音)を Bb 管の f'(第6倍音)より�
 REF_N = {"Bb": 6, "F": 8}  # f' にあたる倍音
 N_MAX = 16  # 表示する倍音の上限
 NOTE = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
-ROOTS = {"Bb": A4 * 2 ** (-35 / 12), "F": A4 * 2 ** (-40 / 12)}  # Bb1 = 58.27 Hz, F1 = 43.65 Hz
+ROOTS = {"Bb": A4 * 2 ** (-35 / 12), "F": A4 * 2 ** (-40 / 12)}  # Bb1, F1(A4 = 442 で 58.54 Hz、43.85 Hz)
 
 
 def read_refhorn() -> list[tuple[float, float, float, str]]:
@@ -61,10 +61,11 @@ def read_refhorn() -> list[tuple[float, float, float, str]]:
     return rows
 
 
-def bell01_rows(step: float = 1.0) -> list[tuple[float, float, float, str]]:
-    """bell01 の L=X_END(⌀12)から L=0(リム)まで。マウスピース側から並べる。"""
-    ls = np.append(np.arange(X_END, 0, -step), 0.0)
-    d = diameter(ls)
+def bell01_rows(step: float = 1.0, **mensur) -> list[tuple[float, float, float, str]]:
+    """bell01 の L=X_END(⌀12)から L=0(リム)まで。マウスピース側から並べる。mensur は diameter() の引数。"""
+    xe = mensur.get("xe", X_END)
+    ls = np.append(np.arange(xe, 0, -step), 0.0)
+    d = diameter(ls, **mensur)
     return [(float(d[i]), float(d[i + 1]), float(ls[i] - ls[i + 1]), "bell01") for i in range(len(ls) - 1)]
 
 
