@@ -181,7 +181,7 @@ def main() -> None:
         disk = Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face()
         show(
             *shapes, cl, bcl, disk,
-            names=[*names, "bell01_centerline", "branch1_centerline", "inner_disk_D285"],
+            names=[*names, "bell01_centerline", "branch1_centerline", f"inner_disk_D{2 * g['ri']:.0f}"],
             colors=[*colors, "#e02020", "#a000c0", "#30c050"],
             alphas=[1.0, 1.0, 1.0, 1.0, 0.4],
             reset_camera=Camera.KEEP,

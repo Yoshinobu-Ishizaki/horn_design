@@ -1,8 +1,10 @@
 """bell01 と 1番管の芯線を寸法から作り、DXF に書き出す。
 
-構成: 始点 (0,0)(リム側)から +Y へ直線 STRAIGHT → 時計回りの円弧 (R1, TH1) → 渦巻き。
+構成: 始点 (0,0)(リム側)から +Y へ直線 STRAIGHT → (時計回りの円弧 (R1, TH1)。TH1=0 なら無し)→ 渦巻き。
+- ベルは、半径 RI の円板に当てて曲げる想定。直管部が円板に接する所から先は、管の内側が円板に沿う。
 - ベルの渦巻き: 芯線と中心 C の距離を RI + D(L)/2 に保つ。管の各断面が半径 RI の円に接するので、
-  巻きの内側(細い側)のシルエットが円になる(直径 2·RI)。始点で円弧と接線が連続になるように C を置く。
+  曲げの内側のシルエットが円になる(直径 2·RI)。始点で接線が連続になるように C を置く。
+  STRAIGHT を長くすると、円板が上に上がる(全体の高さが上がる)。
   ベルは L = TOTAL で終わる(メンズールの終点を変えないため)。
 - 1番管: ベルの渦巻きをそのまま延ばし、内側の円の半径を RI から RI - BRANCH_DRI へ少しずつ減らして
   内側へ曲げる(減らし方は (s^2)、s は 1番管の中の 0〜1。始点で接線も曲率も連続)。
@@ -26,10 +28,10 @@ from scipy.interpolate import CubicSpline
 WD = Path(__file__).resolve().parent.parent
 LD_CSV = WD / "bell01-ld.csv"
 TOTAL = 840.635  # ベルの芯線の全長 (mm)
-STRAIGHT = 275.0  # 直線 (mm)
-R1, TH1 = 125.0, 58.0  # 円弧の半径 (mm) と角度 (deg)
-RI = 142.5  # 巻きの内側のシルエットの円の半径 (mm)。直径 285
-BRANCH_DRI = 105.0  # 1番管で内側の円の半径を減らす量 (mm)。大きいほど内側へ曲がる
+STRAIGHT = 250.0  # 直線 (mm)。円板に接するまで
+R1, TH1 = 100.0, 0.0  # 直線と渦巻きの間の円弧 (mm, deg)。0 なら円弧なし(直線から円板に巻き付ける)
+RI = 137.5  # 曲げに使う円板の半径 (mm)。直径 275
+BRANCH_DRI = 53.0  # 1番管で内側の円の半径を減らす量 (mm)。大きいほど内側へ曲がる
 N_SPIRAL = 161  # ベルの渦巻きのスプラインの通過点の数
 N_BRANCH = 161  # 1番管のスプラインの通過点の数
 
@@ -90,11 +92,11 @@ def build_wire(**kw) -> Wire:
     """ベルの芯線(L = 0〜TOTAL)。"""
     g = geometry(**kw)
     t0, t1 = g["spiral_tan"]
-    return Wire([
-        Line(_v((0, 0)), _v(g["q0"])),
-        ThreePointArc(_v(g["q0"]), _v(g["qm"]), _v(g["q1"])),
-        Spline(*[_v(p) for p in g["spiral"]], tangents=(_v(t0), _v(t1))),
-    ])
+    edges = [Line(_v((0, 0)), _v(g["q0"]))]
+    if np.linalg.norm(g["q1"] - g["q0"]) > 1e-9:  # TH1 = 0 なら円弧なし(直線から直接渦巻き)
+        edges.append(ThreePointArc(_v(g["q0"]), _v(g["qm"]), _v(g["q1"])))
+    edges.append(Spline(*[_v(p) for p in g["spiral"]], tangents=(_v(t0), _v(t1))))
+    return Wire(edges)
 
 
 def build_branch_wire(**kw) -> Wire:
@@ -113,7 +115,8 @@ def write_dxf(out: Path, **kw) -> None:
     c1 = g["c1"]
     a0 = math.degrees(math.atan2(g["q0"][1] - c1[1], g["q0"][0] - c1[0]))
     a1 = math.degrees(math.atan2(g["q1"][1] - c1[1], g["q1"][0] - c1[0]))
-    msp.add_arc(tuple(c1), float(np.linalg.norm(g["q0"] - c1)), a1, a0)
+    if abs(a0 - a1) > 1e-9:
+        msp.add_arc(tuple(c1), float(np.linalg.norm(g["q0"] - c1)), a1, a0)
     for key, layer in [("spiral", "0"), ("branch", "branch1")]:
         tt = g[f"{key}_tan"]
         s = msp.add_spline(fit_points=[tuple(p) for p in g[key]], dxfattribs={"layer": layer})

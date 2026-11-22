@@ -142,7 +142,7 @@ def main() -> None:
         print(f"inner circle of the spiral: D {2 * g['ri']:.3f}; disk touching the whole bell: D {2 * ri:.3f}")
         show(bore_b, cl_b, bore_br, bcl, bore_h, cl_h, disk,
              names=["bell01_bore", "bell01_centerline", "branch1_bore", "branch1_centerline",
-                    "refbell_bore", "refbell_centerline", "inner_disk_D285"],
+                    "refbell_bore", "refbell_centerline", f"inner_disk_D{2 * g['ri']:.0f}"],
              # bell01: 金色と赤、1番管: 橙と紫、RefBell: 青と水色、内側の円: 緑。重なりが見えるよう半透明
              colors=["#e0a020", "#e02020", "#c06020", "#a000c0", "#2070e0", "#00b0d0", "#30c050"],
              alphas=[0.55, 1.0, 0.8, 1.0, 0.55, 1.0, 0.4],
