@@ -33,7 +33,7 @@ KAN = Path.home() / "develop/kanutils"
 BIN = KAN / "src"
 RefHorn = sorted(KAN.glob("sample/*Bb000.men"))[0]  # 上流のサンプル(kanutils/sample の *Bb000.men)
 sys.path.insert(0, str(ROOT / "cad/bell01/tools"))
-from make_mensur import X_END, diameter  # noqa: E402
+from make_mensur import D12_EXTRA, X_END, diameter  # noqa: E402
 
 A4 = 442.0
 UPSTREAM_END = "T1men"  # RefHorn の、この注記の行から先(T1 + ベル)を bell01 に置き換える
@@ -69,12 +69,14 @@ def read_refhorn() -> list[tuple[float, float, float, str]]:
     return rows
 
 
-def bell01_rows(step: float = 1.0, **mensur) -> list[tuple[float, float, float, str]]:
-    """bell01 の L=X_END(⌀12)から L=0(リム)まで。マウスピース側から並べる。mensur は diameter() の引数。"""
+def bell01_rows(step: float = 1.0, d12_extra: float = D12_EXTRA, **mensur) -> list[tuple[float, float, float, str]]:
+    """bell01 の ⌀12 の円筒(d12_extra、1番管の末端の直線)と、L=X_END(⌀12)から L=0(リム)まで。
+    マウスピース側から並べる。mensur は diameter() の引数(p, ang, q, xe, perturb)。"""
     xe = mensur.get("xe", X_END)
     ls = np.append(np.arange(xe, 0, -step), 0.0)
     d = diameter(ls, **mensur)
-    return [(float(d[i]), float(d[i + 1]), float(ls[i] - ls[i + 1]), "bell01") for i in range(len(ls) - 1)]
+    rows = [(float(d[i]), float(d[i + 1]), float(ls[i] - ls[i + 1]), "bell01") for i in range(len(ls) - 1)]
+    return ([(12.0, 12.0, d12_extra, "bell01 d12")] if d12_extra > 0 else []) + rows
 
 
 def write_men(path: Path, title: str, rows) -> None:

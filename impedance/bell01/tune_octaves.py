@@ -31,7 +31,7 @@ OCT = {("Bb", 3, 6): 10.0, ("Bb", 4, 8): 10.0, ("F", 3, 6): 10.0, ("F", 4, 8): 1
 SHAPE_W = 0.02
 F_EXTRA0 = 939.3  # F 管の円筒の初期値 (mm)
 L_CMP = np.linspace(0, 840, 400)
-D_NOW = diameter(L_CMP)
+D_NOW = diameter(L_CMP, perturb=[])  # 基本形(摂動なし)
 
 
 def evaluate(v, up, verbose=False):
@@ -39,17 +39,17 @@ def evaluate(v, up, verbose=False):
     if not (0.3 < p < 12 and -85 < ang < -40 and -0.1 < q < 0.05 and 1100 < xe < 1500 and 600 < fx < 1300):
         return 1e6
     try:
-        d = diameter(np.linspace(0, xe, 1500), p=p, ang=ang, q=q, xe=xe)
+        d = diameter(np.linspace(0, xe, 1500), p=p, ang=ang, q=q, xe=xe, perturb=[])
         if not np.all(np.isfinite(d)) or np.any(np.diff(d) >= 0):
             return 1e6
-        rows = I.bell01_rows(p=p, ang=ang, q=q, xe=xe)
+        rows = I.bell01_rows(d12_extra=0.0, p=p, ang=ang, q=q, xe=xe, perturb=[])
         c = {}
         for key, extra in (("Bb", 0.0), ("F", fx)):
             men = I.build(f"tuneo_{key}", up, rows, extra)
             c[key] = {n: ct for n, _, _, ct in I.cents_vs_series(I.peaks(men), key)}
     except Exception:
         return 1e6
-    shape = float(np.sqrt(np.mean((diameter(L_CMP, p=p, ang=ang, q=q, xe=xe) - D_NOW) ** 2)))
+    shape = float(np.sqrt(np.mean((diameter(L_CMP, p=p, ang=ang, q=q, xe=xe, perturb=[]) - D_NOW) ** 2)))
     res = [c["Bb"][6] - F_PRIME, c["F"][8] - (c["Bb"][6] + I.F_ABOVE_BB)]
     res += [(c[k][hi] - c[k][lo]) - t for (k, lo, hi), t in OCT.items()]
     err = sum(r * r for r in res) + SHAPE_W * shape**2

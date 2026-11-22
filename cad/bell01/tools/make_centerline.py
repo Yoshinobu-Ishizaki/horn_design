@@ -35,7 +35,7 @@ TOTAL = 840.635  # ベルの芯線の全長 (mm)
 STRAIGHT = 250.0  # 直線 (mm)。円板に接するまで
 R1, TH1 = 100.0, 0.0  # 直線と渦巻きの間の円弧 (mm, deg)。0 なら円弧なし(直線から円板に巻き付ける)
 RI = 137.5  # 曲げに使う円板の半径 (mm)。直径 275
-BRANCH_DRI = 38.08  # 1番管で内側の円の半径を減らす量 (mm)。大きいほど内側へ曲がる
+BRANCH_DRI = 33.72  # 1番管で内側の円の半径を減らす量 (mm)。大きいほど内側へ曲がる
 BRANCH_ARC_R = 50.0  # 1番管の渦巻きから末端の直線へつなぐ円弧の半径 (mm)
 BRANCH_END_DY = 10.0  # 末端の直線の高さ: 組立姿勢で、円板の中心より上へ (mm)。暫定
 ASSEMBLY_ROT_Z = 15.0  # 管体組立の基本姿勢: リム中心まわりに Z 軸で回す角度 (deg、+Z から見て反時計回り)
@@ -44,8 +44,19 @@ N_BRANCH = 161  # 1番管のスプラインの通過点の数
 
 
 def _profile():
+    """D(L) と、1番管の終わりの L を返す。表(bell01-ld.csv)は ⌀12 になる L まで。その先の D12_EXTRA は ⌀12 の直線。"""
+    from make_mensur import D12_EXTRA
+
     a = np.loadtxt(LD_CSV, delimiter=",", skiprows=1)
-    return CubicSpline(a[:, 0], a[:, 1]), float(a[-1, 0])
+    sp = CubicSpline(a[:, 0], a[:, 1])
+    xe = float(a[-1, 0])
+
+    def D(ls, nu=0):
+        ls = np.asarray(ls, dtype=float)
+        v = sp(np.minimum(ls, xe), nu)
+        return np.where(ls > xe, 0.0, v) if nu else v
+
+    return D, xe + D12_EXTRA
 
 
 def ri_of(ls, ri=RI, dri=BRANCH_DRI, l_branch_end=None):

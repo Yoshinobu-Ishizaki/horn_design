@@ -140,13 +140,13 @@ def main() -> None:
 
     # 1番管: ベルの終点から、メンズール関数が 12.00 になる L まで(L はベルの終点からの距離にずらす)
     from make_centerline import ASSEMBLY_ROT_Z, build_branch_wire, geometry
-    from make_mensur import diameter
+    from make_mensur import X_END, diameter
 
     bcl = build_branch_wire()
     g = geometry()
     l0b = cl.length  # 1番管のメンズールは、ベルの芯線の実際の長さから
     Lb = np.linspace(l0b, g["l_branch_end"], 401)
-    Db = diameter(Lb)
+    Db = diameter(np.minimum(Lb, X_END))  # ⌀12 になった先(1番管の末端の直線の延長分)は ⌀12
     bshell, bprof = variable_pipe_law(bcl, Lb - l0b, Db)
     print(f"branch1: centerline {bcl.length:.3f}, D {Db[0]:.3f} -> {Db[-1]:.3f}, faces {len(bshell.faces())} "
           f"valid {bshell.is_valid}")

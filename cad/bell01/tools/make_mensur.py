@@ -38,6 +38,12 @@ X_END, D_END = 1304.93, 12.0  # 1番管の終わりの L (mm) と径 (mm)
 P = 2.1061  # 形の指数
 ANG = -70.733  # リムの開き角 (deg)
 Q = -0.005524  # 1次の項の係数 (mm/mm)
+# 局所的な摂動(基本形に足す): (A, L0, w, lam) ごとに A·exp(-((L-L0)/w)^2)·cos(2π(L-L0)/lam)。L はリムからの距離 (mm)
+# 2026-11-22: Bb 管の bb(第4倍音)を f' に近づける(impedance/bell01/tune_perturb.py、lam は第4倍音の半波長 730 mm に固定、
+# w = lam/4.3 で約1波長に区切る。範囲はリムから 166〜896 mm)。bb − f' が +4.5 → +1.9 セント
+PERTURB: list[tuple[float, float, float, float]] = [(0.158, 530.5, 730.0 / 4.3, 730.0)]
+# ⌀12 になった先に足す ⌀12 の円筒 (mm)。1番管の末端の直線にあたり、Bb 管の f' を +16 セントに保つ
+D12_EXTRA = 1.69
 
 
 def coefficients(p: float = P, ang: float = ANG, q: float = Q, df: float = DF, xe: float = X_END, de: float = D_END):
@@ -56,10 +62,22 @@ def coefficients(p: float = P, ang: float = ANG, q: float = Q, df: float = DF, x
     return a, b, c
 
 
-def diameter(x, p: float = P, ang: float = ANG, q: float = Q, xe: float = X_END):
+def perturbation(x, items=None):
+    """局所的な摂動 Σ A·exp(-((L-L0)/w)^2)·cos(2π(L-L0)/lam)(mm)。"""
+    x = np.asarray(x, dtype=float)
+    out = np.zeros_like(x)
+    for a_, l0, w, lam in (PERTURB if items is None else items):
+        t = (x - l0) / w
+        out += a_ * np.exp(-t * t) * np.cos(2 * math.pi * (x - l0) / lam)
+    return out
+
+
+def diameter(x, p: float = P, ang: float = ANG, q: float = Q, xe: float = X_END, perturb=None):
+    """D(L)。perturb は局所的な摂動の並び(None なら PERTURB)。D(xe) = D_END は基本形で決まり、
+    摂動は xe の近くで 0 になるように置く。"""
     a, b, c = coefficients(p, ang, q, xe=xe)
     x = np.asarray(x, dtype=float)
-    return a / (x + b) ** p + c + q * x
+    return a / (x + b) ** p + c + q * x + perturbation(x, perturb)
 
 
 def main(argv: list[str]) -> None:

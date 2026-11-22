@@ -27,7 +27,7 @@ REL = {2: -20.0, 3: -10.0, 4: -5.0}  # f' に対する目標(セント)
 TARGET = {6: F_PRIME, **{n: F_PRIME + r for n, r in REL.items()}}  # 倍音: セント(Bb 管)
 SHAPE_W = 0.02  # 形のずれ (mm rms) の重み。セント² に足す
 L_CMP = np.linspace(0, 840, 400)  # 形のずれを測る範囲(ベル)
-D_NOW = diameter(L_CMP)
+D_NOW = diameter(L_CMP, perturb=[])  # 基本形(摂動なし)
 
 
 def evaluate(v, up, verbose=False):
@@ -36,15 +36,15 @@ def evaluate(v, up, verbose=False):
         return 1e6, None
     try:
         ls = np.linspace(0, xe, 1500)
-        d = diameter(ls, p=p, ang=ang, q=q, xe=xe)
+        d = diameter(ls, p=p, ang=ang, q=q, xe=xe, perturb=[])
         if not np.all(np.isfinite(d)) or np.any(np.diff(d) >= 0):
             return 1e6, None
-        rows = I.bell01_rows(p=p, ang=ang, q=q, xe=xe)
+        rows = I.bell01_rows(d12_extra=0.0, p=p, ang=ang, q=q, xe=xe, perturb=[])
         men = I.build("tune_Bb", up, rows, 0.0)
         c = {n: ct for n, _, _, ct in I.cents_vs_series(I.peaks(men), "Bb")}
     except Exception:
         return 1e6, None
-    shape = float(np.sqrt(np.mean((diameter(L_CMP, p=p, ang=ang, q=q, xe=xe) - D_NOW) ** 2)))
+    shape = float(np.sqrt(np.mean((diameter(L_CMP, p=p, ang=ang, q=q, xe=xe, perturb=[]) - D_NOW) ** 2)))
     err = sum((c[n] - t) ** 2 for n, t in TARGET.items()) + SHAPE_W * shape**2
     if verbose:
         print(f"p {p:.4f} ang {ang:.3f} q {q:.6f} xe {xe:.2f} | " +
