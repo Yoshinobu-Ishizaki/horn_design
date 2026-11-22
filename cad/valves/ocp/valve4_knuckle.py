@@ -15,7 +15,7 @@ x = 0 → tanθ cosψ = 1。z/(-y) = tan(TILT) → tan²θ = 1 + 2 tan²(TILT)(T
 
 import math
 
-from build123d import Pos, Rot
+from build123d import Plane, Pos, Rot
 
 from knuckle import knuckle
 
@@ -86,6 +86,13 @@ def connect_knuckle(z: float = Z_F2, pull: float = CONNECT_PULL):
     return Pos(X_VALVE4, 0, z) * Rot(0, 0, CONNECT_ANGLE) * Pos(pull, 0, 0) * knuckle(45.0)
 
 
+def mirrored_twisted_knuckle():
+    """第 4 の 1 階・右下の孔(315°、+x,-y)の枝管。左下の孔(225°)のねじった枝管(twisted_knuckle)を、
+    第 4 の中心を通る YZ 平面(x = X_VALVE4)で鏡映したもの。1 本目 315°、出口側の軸の XY 投影は同じ (0,-1)、
+    YZ 傾きも同じ(+Z 側)、出口側の x は第 4 中心から +11(左下は -11)。"""
+    return twisted_knuckle().mirror(Plane.YZ.offset(X_VALVE4))
+
+
 def main():
     from ocp_vscode import Camera
 
@@ -102,8 +109,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), connect_knuckle(Z_F2), connect_knuckle(Z_F1)]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg"]
+    parts += [twisted_knuckle(th, ps), connect_knuckle(Z_F2), connect_knuckle(Z_F1), mirrored_twisted_knuckle()]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 
