@@ -11,7 +11,6 @@ import argparse
 import sys
 from pathlib import Path
 
-import ezdxf
 import matplotlib
 
 matplotlib.use("Agg")
@@ -22,11 +21,10 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / ".claude/skills/claude_cad_vss/scripts"))
 sys.path.insert(0, str(ROOT / "cad/bell01/ocp"))
 from bell01_surface import LD_CSV, centerline, read_ld  # noqa: E402
-from bell_from_dxf import build_centerline, read_table  # noqa: E402
 
+from bope_claude_cad.refs import refbell  # noqa: E402
 from bope_claude_cad.vss import fit_profile, variable_pipe_law  # noqa: E402
 
-HR_DXF = ROOT / "jigs/*_seat/input/refbell_bell_assy.dxf"
 OUT = ROOT / "output/bell01/compare_refbell"
 
 
@@ -68,9 +66,7 @@ def main() -> None:
     L_b, D_b = read_ld(LD_CSV)
     prof_b = fit_profile(L_b, D_b, cl_b.length)
 
-    msp = ezdxf.readfile(HR_DXF).modelspace()
-    L_h, D_h = read_table(msp)
-    cl_h = build_centerline(msp)
+    cl_h, L_h, D_h = refbell()
     prof_h = fit_profile(L_h, D_h, cl_h.length)
 
     lines = [

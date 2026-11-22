@@ -31,3 +31,4 @@
 ## 社内図面の扱い
 
 - `jigs/*_seat/input/` と `.claude/skills/claude_cad_vss/sample/` は 社内図面(サンプル)。remote が GitHub なので、`.gitignore` で除外してある。commit・push しない。
+- RefBell(参照ベル)は `from bope_claude_cad.refs import refbell` で読む(`cl, L, D = refbell()`)。DXF は環境変数 `HORN_REFBELL_DXF`、なければ `jigs/*_seat/input/*_bell_assy.dxf` を実行時に探す。コードにファイル名・機種名を書かない。

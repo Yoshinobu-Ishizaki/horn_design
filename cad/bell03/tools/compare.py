@@ -1,7 +1,7 @@
 """ベル(既定は bell03 と bell01)と RefBell を、設計の座標(回す前、リム中心が原点、直管部は +Y)で重ねて表示する。
 
 各ベルは cad/bell02/tools/export_bores.py(ベルごとに別プロセス)で BREP に書き出してから読む。
-RefBell は claude_cad_vss のサンプル(社内図面、git 管理外)の DXF を jigs/*_seat/input/*_bell_assy.dxf から探して作る。
+RefBell は bope_claude_cad.refs.refbell()(社内図面、git 管理外。DXF は実行時に探す)で作る。
 
     uv run python cad/bell03/tools/compare.py [bell03 bell01 ...]
 """
@@ -13,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import ezdxf
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "output/compare"
@@ -32,10 +31,10 @@ def main(names: list[str]) -> None:
     for name in names:
         subprocess.run([sys.executable, str(EXPORT), name, str(OUT.relative_to(ROOT))], check=True, env=env, cwd=ROOT)
 
-    from bell_from_dxf import build_centerline, read_table
     from build123d import import_brep
     from ocp_vscode import Camera
 
+    from bope_claude_cad.refs import refbell
     from bope_claude_cad.viewer import show
     from bope_claude_cad.vss import variable_pipe_law
 
@@ -48,18 +47,17 @@ def main(names: list[str]) -> None:
             labels.append(f"{name}_{part}")
             colors.append(col)
             alphas.append(a)
-    dxf = sorted(ROOT.glob("jigs/*_seat/input/*_bell_assy.dxf"))
-    if dxf:
-        msp = ezdxf.readfile(dxf[0]).modelspace()
-        lh, dh = read_table(msp)
-        clh = build_centerline(msp)
+    try:
+        clh, lh, dh = refbell()
+    except FileNotFoundError as e:
+        print(f"{e}。RefBell なしで表示する")
+        clh = None
+    if clh is not None:
         bore_h, _ = variable_pipe_law(clh, lh, dh)
         shapes += [bore_h, clh]
         labels += ["refbell_bore", "refbell_centerline"]
         colors += ["#2070e0", "#00b0d0"]
         alphas += [0.45, 1.0]
-    else:
-        print("RefBell の DXF が見つからない(jigs/*_seat/input/*_bell_assy.dxf)。RefBell なしで表示する")
     show(*shapes, names=labels, colors=colors, alphas=alphas, reset_camera=Camera.KEEP, tab="tree",
          metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1)
     print("shown:", ", ".join(labels))
