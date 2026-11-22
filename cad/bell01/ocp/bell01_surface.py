@@ -60,6 +60,41 @@ def read_centerline(path: Path, start=(0.0, 0.0)) -> Wire:
     return Wire(edges)
 
 
+WALL_FOR_CLEARANCE = 0.4  # 隙間を測るときの板厚 (mm)。板厚を付けていなくても、この厚みで測る
+
+
+def _outline(cl, prof, n=1500):
+    """芯線の平面での、管の両側の輪郭(芯線 ± D/2·法線)。平面の芯線なので厳密。"""
+    pts = []
+    for s in np.linspace(0, prof.l_end, n):
+        p, t = cl.position_at(s / cl.length), cl.tangent_at(s / cl.length)
+        r = float(prof(s)) / 2
+        pts += [(p.X - r * t.Y, p.Y + r * t.X), (p.X + r * t.Y, p.Y - r * t.X)]
+    return np.array(pts)
+
+
+def clearance(cl, prof, bcl, bprof, wall=0.4, skip=60.0):
+    """1番管とベルの外面どうしの最短距離。継ぎ目の近く(ベルの終わりと1番管の始め skip mm)は除く。"""
+    from scipy.spatial import cKDTree
+
+    bell_end = prof.l_end
+    lb = np.linspace(0, bell_end - skip, 2000)
+    bell = []
+    for s in lb:
+        p, t = cl.position_at(s / cl.length), cl.tangent_at(s / cl.length)
+        r = float(prof(s)) / 2
+        bell += [(p.X - r * t.Y, p.Y + r * t.X), (p.X + r * t.Y, p.Y - r * t.X)]
+    br = []
+    for s in np.linspace(skip, bprof.l_end, 800):
+        p, t = bcl.position_at(s / bcl.length), bcl.tangent_at(s / bcl.length)
+        r = float(bprof(s)) / 2
+        br += [(p.X - r * t.Y, p.Y + r * t.X), (p.X + r * t.Y, p.Y - r * t.X)]
+    br = np.array(br)
+    d, _ = cKDTree(np.array(bell)).query(br)
+    i = int(d.argmin())
+    return float(d[i]) - 2 * wall, br[i]
+
+
 def centerline() -> Wire:
     """芯線は tools/make_centerline.py の寸法から直接作る(渦巻きを含むので、DXF は参考)。"""
     import sys
@@ -99,11 +134,31 @@ def main() -> None:
     print(f"check: dia_err_max {chk['dia_err_max']:.4f} mm rms {chk['dia_err_rms']:.4f} "
           f"volume_ratio {chk['volume_ratio']:.6f}")
 
-    shapes, names, colors = [shell], ["bell01_bore"], ["#cf9f30"]
+    # 1番管: ベルの終点から、メンズール関数が 12.00 になる L まで(L はベルの終点からの距離にずらす)
+    from make_centerline import TOTAL, build_branch_wire, geometry
+    from make_mensur import diameter
+
+    bcl = build_branch_wire()
+    g = geometry()
+    Lb = np.linspace(TOTAL, g["l_branch_end"], 401)
+    Db = diameter(Lb)
+    bshell, bprof = variable_pipe_law(bcl, Lb - TOTAL, Db)
+    print(f"branch1: centerline {bcl.length:.3f}, D {Db[0]:.3f} -> {Db[-1]:.3f}, faces {len(bshell.faces())} "
+          f"valid {bshell.is_valid}")
+    bsolid, _ = variable_pipe_law(bcl, Lb - TOTAL, Db, solid=True)
+    bchk = check_variable_pipe(bsolid, bcl, bprof)
+    print(f"branch1 check: dia_err_max {bchk['dia_err_max']:.4f} mm volume_ratio {bchk['volume_ratio']:.6f}")
+    gap, where = clearance(cl, prof, bcl, bprof, wall=a.wall if a.wall > 0 else WALL_FOR_CLEARANCE)
+    print(f"clearance branch1 - bell (outer surfaces, wall {a.wall if a.wall > 0 else WALL_FOR_CLEARANCE}): "
+          f"{gap:.2f} mm at branch1 ({where[0]:.1f}, {where[1]:.1f})")
+
+    shapes, names, colors = [shell, bshell], ["bell01_bore", "branch1_bore"], ["#e0a020", "#c06020"]
     if a.wall > 0:
         wall, _ = variable_pipe_wall(cl, L, D, a.wall)
-        print(f"wall t={a.wall}: faces {len(wall.faces())} valid {wall.is_valid}")
-        shapes, names = [wall], [f"bell01_wall_t{a.wall}"]
+        bwall, _ = variable_pipe_wall(bcl, Lb - TOTAL, Db, a.wall)
+        print(f"wall t={a.wall}: bell faces {len(wall.faces())} valid {wall.is_valid}, "
+              f"branch1 faces {len(bwall.faces())} valid {bwall.is_valid}")
+        shapes, names = [wall, bwall], [f"bell01_wall_t{a.wall}", f"branch1_wall_t{a.wall}"]
 
     if a.step:
         from build123d import Solid
@@ -111,28 +166,27 @@ def main() -> None:
 
         OUT.mkdir(parents=True, exist_ok=True)
         export_step(shell, str(OUT / "bell01_bore_surface.step"))
+        export_step(bshell, str(OUT / "branch1_bore_surface.step"))
         if a.wall > 0:
-            bs = Solid(BRepBuilderAPI_NurbsConvert(shapes[0].wrapped, True).Shape())
-            export_step(bs, str(OUT / f"bell01_wall_t{a.wall}.step"))
+            for s, n in zip(shapes, names):
+                export_step(Solid(BRepBuilderAPI_NurbsConvert(s.wrapped, True).Shape()), str(OUT / f"{n}.step"))
         print(f"STEP -> {OUT}")
 
     if a.show:
-        from ocp_vscode import Camera, StudioBackground, StudioEnvironment, StudioToneMapping
+        from build123d import Circle, Pos
+        from ocp_vscode import Camera
 
         from bope_claude_cad.viewer import show
 
+        disk = Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face()
         show(
-            *shapes, cl,
-            names=[*names, "centerline"],
-            colors=[*colors, "red"],
+            *shapes, cl, bcl, disk,
+            names=[*names, "bell01_centerline", "branch1_centerline", "inner_disk_D285"],
+            colors=[*colors, "#e02020", "#a000c0", "#30c050"],
+            alphas=[1.0, 1.0, 1.0, 1.0, 0.4],
             reset_camera=Camera.KEEP,
-            tab="studio",
-            metalness=1.0,
-            roughness=0.02,
-            studio_environment=StudioEnvironment.HIGH_CONTRAST_STUDIO,
-            studio_tone_mapping=StudioToneMapping.NEUTRAL,
-            studio_exposure=0.8,
-            studio_background=StudioBackground.GRADIENT_DARK,
+            tab="tree",
+            metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1,
         )
 
 

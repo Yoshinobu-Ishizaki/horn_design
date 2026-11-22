@@ -128,14 +128,24 @@ def main() -> None:
 
         bore_b, _ = variable_pipe_law(cl_b, L_b, D_b)
         bore_h, _ = variable_pipe_law(cl_h, L_h, D_h)
+        sys.path.insert(0, str(ROOT / "cad/bell01/tools"))
+        from make_centerline import TOTAL, build_branch_wire, geometry
+        from make_mensur import diameter
+
+        g = geometry()
+        bcl = build_branch_wire()
+        Lb = np.linspace(TOTAL, g["l_branch_end"], 401)
+        bore_br, _ = variable_pipe_law(bcl, Lb - TOTAL, diameter(Lb))
+        # 渦巻き(細い側)の内側に接する円。直管部はこの円より内側に入る(inner_disk で測る)
+        disk = Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face()
         cx, cy, ri = inner_disk(cl_b, prof_b)
-        disk = Pos(cx, cy, 0) * Circle(ri).face()
-        print(f"inner disk (bell01): centre ({cx:.3f}, {cy:.3f}) D {2 * ri:.3f}")
-        show(bore_b, cl_b, bore_h, cl_h, disk,
-             names=["bell01_bore", "bell01_centerline", "refbell_bore", "refbell_centerline", "bell01_inner_disk"],
-             # bell01: 真鍮の金色と赤い芯線、RefBell: 青と水色の芯線、内側の円: 緑。重なりが見えるよう半透明
-             colors=["#e0a020", "#e02020", "#2070e0", "#00b0d0", "#30c050"],
-             alphas=[0.55, 1.0, 0.55, 1.0, 0.5],
+        print(f"inner circle of the spiral: D {2 * g['ri']:.3f}; disk touching the whole bell: D {2 * ri:.3f}")
+        show(bore_b, cl_b, bore_br, bcl, bore_h, cl_h, disk,
+             names=["bell01_bore", "bell01_centerline", "branch1_bore", "branch1_centerline",
+                    "refbell_bore", "refbell_centerline", "inner_disk_D285"],
+             # bell01: 金色と赤、1番管: 橙と紫、RefBell: 青と水色、内側の円: 緑。重なりが見えるよう半透明
+             colors=["#e0a020", "#e02020", "#c06020", "#a000c0", "#2070e0", "#00b0d0", "#30c050"],
+             alphas=[0.55, 1.0, 0.8, 1.0, 0.55, 1.0, 0.4],
              reset_camera=Camera.KEEP, tab="tree",
              # 金属表示(metalness=1)はビューアに残り、色が灰色に見えるので、既定の材質に戻す
              metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1)
