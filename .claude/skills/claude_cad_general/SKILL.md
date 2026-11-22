@@ -11,7 +11,8 @@ description: 部品・治具・型などの3Dモデルを、OCP CAD Viewer を�
 
 - **スキルの置き場所**: `~/.claude/skills/` ではなく、このリポジトリの `.claude/skills/`(プロジェクトのスキル)。原本もここ。個別スキルから共通の道具は `../claude_cad_general/...` で参照する(本文どおり)。
 - **実行環境**: スキル専用の共有 `.venv` は使わない。build123d・ocp-vscode・ezdxf・numpy・scipy はリポジトリの `.venv`(`pyproject.toml` / `uv.lock`)に入れてあり、`src/bope_claude_cad` もパッケージとして入っている。実行は `PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 uv run python ...`、テストは `uv run pytest`。`uv run --frozen --project .claude/skills/claude_cad_general` は使わない。依存を足すときは、ユーザーに断ってから `uv add`。
-- **OCP CAD Viewer が使う Python**: VS Code のワークスペースのインタプリタを、このリポジトリの `.venv/bin/python` にすればよい。`scripts/ocp_python.py` のパッチは不要。
+- **OCP CAD Viewer が使う Python**: 拡張に `scripts/ocp_python.py` のパッチを当て、`.vscode/settings.json` の `OcpCadViewer.advanced.pythonPath` で、このリポジトリの `.venv/bin/python` を指定している(`python.defaultInterpreterPath` も同じ)。
+- **拡張へのパッチ(2026-11-22 に 4.3.0 へ当てた)**: `ocp_python.py`・`ocp_hover_name.py`・`ocp_mouse.py`(既定の geomagic)。拡張を更新するとパッチが消えるので、`uv run --no-project python -I .claude/skills/claude_cad_general/scripts/<名前>.py apply` を3つとも当て直し、VS Code を Reload Window する。状態は `status` で見る。
 - **ocp-vscode の版**: `.venv` には `ocp-vscode 4.3.x` が入っている。VS Code の OCP CAD Viewer 拡張も 4.3 系にそろえる(ずれたら `pyproject.toml` の範囲を拡張の系列に合わせて `uv lock`・`uv sync`)。
 - **OS**: Linux。Windows 向けの文字化け対策(10)は、日本語を Write / Edit で書く・コミットメッセージを `git commit -F` で渡す、の部分だけ守ればよい。注記のフォント Segoe UI Symbol はこの PC に無いので、記号が出ないときは別のフォント(DejaVu Sans など)を使う。
 - **作業場所**: `wd` = `cad/<名前>/`(例: `cad/bell_01/`。`cad/` には FreeCAD のファイルもある)。ビューアに出すモデルのコードは `wd/ocp/`。生成物は `output/`(git 管理外)。名前は最初にユーザーに確認する。
