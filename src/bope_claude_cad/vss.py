@@ -239,7 +239,8 @@ def variable_pipe_law(
 
 
 def variable_pipe_wall(
-    centerline: Wire, lengths, diameters, thickness: float, outward: bool = True, **kw
+    centerline: Wire, lengths, diameters, thickness: float, outward: bool = True,
+    method: str = "join", **kw
 ) -> tuple[Solid, DiameterProfile]:
     """L-D 表の面(内径面)を、面に垂直に ``thickness`` だけ外側(または内側)へオフセットして、
     厚みを付けた管のソリッドを作る。
@@ -250,8 +251,19 @@ def variable_pipe_wall(
     なお、閉じたソリッドの両端を開口にして ``offset``(MakeThickSolid)する方法は、端が
     芯線に垂直な平面で切れてしまうので使わない。``thicken`` を面ごとにかけて融合する方法も、
     融合が壊れる(ソリッドが割れる)ので使わない。
+
+    ``method``:
+    - ``"join"``(既定): ``MakeOffsetShape.PerformByJoin``。面どうしのつなぎを OCC が解くので遅い
+      (渦巻きの1番管で 6 分以上)。外面は OffsetSurface なので、STEP には NURBS 変換が要る(これも遅い)。
+    - ``"sweep"``: 外面を、法線方向のずれを補正した L'-D 表で、同じ芯線に沿ってもう一度掃引する
+      (``_offset_sweep``)。直径に板厚の2倍を足しただけのスイープとは違い、法線方向の厚みになる。
+      速く(数秒)、外面は最初から B-スプライン面。面ごとの OffsetSurface を B-スプライン面に近似する方法は、
+      内径面の極が多い(1番管で 403)と近似が発散して使えなかった。
     """
     inner, prof = variable_pipe_law(centerline, lengths, diameters, **kw)
+    if method == "sweep":
+        outer = _offset_sweep(centerline, prof, thickness if outward else -thickness)
+        return _close_wall(inner, outer), prof
     mo = BRepOffsetAPI_MakeOffsetShape()
     mo.PerformByJoin(
         inner.wrapped,
@@ -265,6 +277,11 @@ def variable_pipe_wall(
     if not mo.IsDone():
         raise RuntimeError("オフセットに失敗した")
     outer = Shell(mo.Shape())
+    return _close_wall(inner, outer), prof
+
+
+def _close_wall(inner: Shell, outer: Shell) -> Solid:
+    """内面と外面のシェルの両端を、内外の縁を結ぶ面で閉じてソリッドにする。"""
 
     def rims(shell: Shell) -> list:
         # 1つの面にしか属さない閉じた縁(継ぎ目の線は閉じていないので除く)
@@ -285,7 +302,30 @@ def variable_pipe_wall(
     wall = Solid(Shell(list(inner.faces()) + list(outer.faces()) + caps))
     if wall.volume < 0:
         wall = Solid(wall.wrapped.Reversed())
-    return wall, prof
+    return wall
+
+
+def _offset_sweep(centerline: Wire, prof: DiameterProfile, dist: float, n: int = 4001, **kw) -> Shell:
+    """内径面を法線方向に ``dist``(正は外向き)だけずらした面を、もう1つの可変断面スイープで作る。
+
+    内径面の点 X(L, θ) = P(L) + r(L)·e(θ) の法線は、芯線の曲がりを無視すると (e - r'·T)/√(1+r'²)。
+    これを ``dist`` だけ動かすと、芯線に垂直な断面の円のまま、
+      位置 L' = L - dist·r'/√(1+r'²)、半径 r' = r + dist/√(1+r'²)
+    になる(芯線が直線なら厳密。曲がりの影響は κ·r·r'·dist 程度で、ベルでは 0.01 mm 以下)。
+    これを L'-D 表にして ``variable_pipe_law`` で掃引する。``variable_pipe_wall(method="sweep")`` 用。
+    """
+    ls = np.linspace(prof.l_table_min, prof.l_end, n)
+    r = prof(ls) / 2
+    dr = prof.spline(ls, 1) / 2
+    k = np.sqrt(1 + dr**2)
+    lo = ls - dist * dr / k
+    ro = r + dist / k
+    if np.any(np.diff(lo) <= 0):
+        raise RuntimeError("オフセット後の L が単調でない(曲率が大きすぎる)")
+    # 芯線の範囲 [0, 芯線の長さ] に収める(端のはみ出しは dist·r'/√(1+r'²) 程度)
+    keep = (lo >= 0) & (lo <= centerline.length)
+    outer, _ = variable_pipe_law(centerline, lo[keep], 2 * ro[keep], **kw)
+    return outer
 
 
 def check_variable_pipe(

@@ -115,6 +115,7 @@ def main() -> None:
     ap.add_argument("--show", action="store_true", help="OCP Viewer に表示")
     ap.add_argument("--step", action="store_true", help="output/bell01/ に STEP を出す")
     ap.add_argument("--wall", type=float, default=0.0, help="外向きの板厚 (mm)。0 はサーフェスだけ")
+    ap.add_argument("--check", action="store_true", help="断面の直径誤差を測る(約 1 分かかる)")
     a = ap.parse_args()
 
     cl = centerline()
@@ -129,10 +130,11 @@ def main() -> None:
     area_ideal = float(np.trapezoid(2 * math.pi * r * np.sqrt(1 + dr**2), g))
     print(f"surface: faces {len(shell.faces())} valid {shell.is_valid} area {shell.area:.1f} "
           f"ideal {area_ideal:.1f} ratio {shell.area / area_ideal:.6f}")
-    solid, _ = variable_pipe_law(cl, L, D, solid=True)
-    chk = check_variable_pipe(solid, cl, prof)
-    print(f"check: dia_err_max {chk['dia_err_max']:.4f} mm rms {chk['dia_err_rms']:.4f} "
-          f"volume_ratio {chk['volume_ratio']:.6f}")
+    if a.check:
+        solid, _ = variable_pipe_law(cl, L, D, solid=True)
+        chk = check_variable_pipe(solid, cl, prof)
+        print(f"check: dia_err_max {chk['dia_err_max']:.4f} mm rms {chk['dia_err_rms']:.4f} "
+              f"volume_ratio {chk['volume_ratio']:.6f}")
 
     # 1番管: ベルの終点から、メンズール関数が 12.00 になる L まで(L はベルの終点からの距離にずらす)
     from make_centerline import TOTAL, build_branch_wire, geometry
@@ -145,31 +147,30 @@ def main() -> None:
     bshell, bprof = variable_pipe_law(bcl, Lb - TOTAL, Db)
     print(f"branch1: centerline {bcl.length:.3f}, D {Db[0]:.3f} -> {Db[-1]:.3f}, faces {len(bshell.faces())} "
           f"valid {bshell.is_valid}")
-    bsolid, _ = variable_pipe_law(bcl, Lb - TOTAL, Db, solid=True)
-    bchk = check_variable_pipe(bsolid, bcl, bprof)
-    print(f"branch1 check: dia_err_max {bchk['dia_err_max']:.4f} mm volume_ratio {bchk['volume_ratio']:.6f}")
+    if a.check:
+        bsolid, _ = variable_pipe_law(bcl, Lb - TOTAL, Db, solid=True)
+        bchk = check_variable_pipe(bsolid, bcl, bprof)
+        print(f"branch1 check: dia_err_max {bchk['dia_err_max']:.4f} mm volume_ratio {bchk['volume_ratio']:.6f}")
     gap, where = clearance(cl, prof, bcl, bprof, wall=a.wall if a.wall > 0 else WALL_FOR_CLEARANCE)
     print(f"clearance branch1 - bell (outer surfaces, wall {a.wall if a.wall > 0 else WALL_FOR_CLEARANCE}): "
           f"{gap:.2f} mm at branch1 ({where[0]:.1f}, {where[1]:.1f})")
 
     shapes, names, colors = [shell, bshell], ["bell01_bore", "branch1_bore"], ["#e0a020", "#c06020"]
     if a.wall > 0:
-        wall, _ = variable_pipe_wall(cl, L, D, a.wall)
-        bwall, _ = variable_pipe_wall(bcl, Lb - TOTAL, Db, a.wall)
+        wall, _ = variable_pipe_wall(cl, L, D, a.wall, method="sweep")
+        bwall, _ = variable_pipe_wall(bcl, Lb - TOTAL, Db, a.wall, method="sweep")
         print(f"wall t={a.wall}: bell faces {len(wall.faces())} valid {wall.is_valid}, "
               f"branch1 faces {len(bwall.faces())} valid {bwall.is_valid}")
         shapes, names = [wall, bwall], [f"bell01_wall_t{a.wall}", f"branch1_wall_t{a.wall}"]
 
     if a.step:
-        from build123d import Solid
-        from OCP.BRepBuilderAPI import BRepBuilderAPI_NurbsConvert
 
         OUT.mkdir(parents=True, exist_ok=True)
         export_step(shell, str(OUT / "bell01_bore_surface.step"))
         export_step(bshell, str(OUT / "branch1_bore_surface.step"))
         if a.wall > 0:
             for s, n in zip(shapes, names):
-                export_step(Solid(BRepBuilderAPI_NurbsConvert(s.wrapped, True).Shape()), str(OUT / f"{n}.step"))
+                export_step(s, str(OUT / f"{n}.step"))  # method="sweep" の外面は B-スプライン面なので変換不要
         print(f"STEP -> {OUT}")
 
     if a.show:
