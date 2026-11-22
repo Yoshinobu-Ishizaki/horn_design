@@ -21,7 +21,7 @@ from bope_claude_cad.vss import check_variable_pipe, variable_pipe_law, variable
 WD = Path(__file__).resolve().parent.parent
 ROOT = WD.parent.parent
 CTR_DXF = WD / "bell01-ctr.dxf"
-LD_CSV = ROOT / "mensur/bell/bell_20180330_xyrev.csv"
+LD_CSV = WD / "bell01-ld.csv"  # tools/make_mensur.py で作る(元は mensur/bell/bell_20180330_xyrev.csv)
 OUT = ROOT / "output/bell01"
 
 
