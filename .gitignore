@@ -24,3 +24,8 @@ output/
 # company drawings (internal; do not publish)
 /jigs/*_seat/
 /.claude/skills/claude_cad_vss/sample/
+
+# calcimp の生成物(impedance/*/intonation.py で作り直せる)
+/impedance/**/*.men
+/impedance/**/*.imp
+/impedance/**/*.res
