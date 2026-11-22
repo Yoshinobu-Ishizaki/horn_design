@@ -115,8 +115,9 @@ def main() -> None:
         bore_h, _ = variable_pipe_law(cl_h, L_h, D_h)
         show(bore_b, cl_b, bore_h, cl_h,
              names=["bell01_bore", "bell01_centerline", "refbell_bore", "refbell_centerline"],
-             colors=["#cf9f30", "red", "#6080c0", "blue"], alphas=[0.6, 1.0, 0.6, 1.0],
-             reset_camera=Camera.KEEP)
+             # bell01: 真鍮の金色と赤い芯線、RefBell: 青と水色の芯線。重なりが見えるよう半透明
+             colors=["#e0a020", "#e02020", "#2070e0", "#00b0d0"], alphas=[0.55, 1.0, 0.55, 1.0],
+             reset_camera=Camera.KEEP, tab="tree")
 
 
 if __name__ == "__main__":
