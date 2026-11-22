@@ -56,7 +56,8 @@ def main() -> None:
     up = hr[:i_up]
     t = time.time()
     x0 = np.array([P, ANG, Q, X_END])
-    print("start:"); evaluate(x0, up, verbose=True)
+    print("start:")
+    evaluate(x0, up, verbose=True)
     count = [0, np.inf]
 
     def f(v):
@@ -71,7 +72,8 @@ def main() -> None:
     simplex = np.array([x0, x0 + [0.8, 0, 0, 0], x0 + [0, 2.0, 0, 0], x0 + [0, 0, 0.004, 0], x0 + [0, 0, 0, -30]])
     best = minimize(f, x0, method="Nelder-Mead",
                     options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-2, "initial_simplex": simplex})
-    print(f"best ({time.time() - t:.0f}s):"); evaluate(best.x, up, verbose=True)
+    print(f"best ({time.time() - t:.0f}s):")
+    evaluate(best.x, up, verbose=True)
     for f in HERE.glob("tune_Bb*"):
         f.unlink()
 
