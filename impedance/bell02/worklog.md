@@ -10,6 +10,7 @@
 | 2 | 時刻不明 | (ゴール: bell02 で条件を満たすものが見つかる、またはどうやっても実現できないとわかる) | `refine_perturb.py`(第2段、8変数)。1300: 誤差 434、1400: 113。1400 の結果から 1350/1400/1450 でやり直し: 111 / 23 / **4.6**。X_END = 1450 で全条件を ±1.1 セント以内で満たした(`refine_x1450r.json`) |
 | 3 | 2026-11-22 22:12:18 (epoch 1795353138) | 計算が終わったら、どうやって計算していったかの説明文書を作る | `README.md`(モデル、メンズール関数、摂動の考え方、合わせ込み、bell01 の経過、bell02 の結果と注意点、再現手順) |
 | 4 | 2026-11-22 22:38:25 (epoch 1795354705) | CAD を作って 01 や RefBell と比べたい | `cad/bell02/`(bell01 の tools・ocp を写して bell02 の値に)。メンズールは refine_x1450r.json、D12_EXTRA = 0(dcyl -80.8 は上流を縮める)。芯線は bell01 と同じ考え方(直線 250、円板 ⌀275)。1番管は 609.365 mm。最初は渦巻きをやめる点が 1番管の始まり直後(1.7 mm)に見つかり、直線がベルを横切った → BRANCH_EXIT_MIN = 150 以降から探す。**BRANCH_DRI = 60.23** で隙間 1.60 mm、渦巻きをやめる点 317.7、末端の直線 195.4。板厚付きも valid。`tools/export_bores.py`(別プロセスで BREP に)と `tools/compare.py` で bell02(緑)・bell01(金)・RefBell(青)を設計の座標で重ねて表示。bell02 は太い: L=100 で ⌀103.2(bell01 85.6、RefBell 88.1)、L=531 で ⌀28.2(21.5、23.9)、ベルの終わり ⌀18.7(16.1、16.2) |
+| 5 | 2026-11-22 23:28:35 (epoch 1795357715) | intonation レポートを表示して | bell02 のレポートと解釈して作成。`intonation.py`(bell02 の決定値で Bb・F と RefHorn を計算、RefHorn の F 延長 944.1)、`report.py` + `report_template.html`(bell01 から写して bell02 に)。Artifact https://claude.ai/artifact/Am9m9tSj7G2QtUi94M6kDU 。Bb 全長 2782.3、Bb の f' +15.9、F の f' +25.9、F の第2倍音 − f' = -30.1 |
 
 ## 経過
 

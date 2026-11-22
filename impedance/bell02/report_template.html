@@ -1,0 +1,435 @@
+<title>bell02 Intonation Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; each chart is a full-width figure with its legend above and a caption below. */
+:root {
+  --bg: #fbfbf9;
+  --surface: #ffffff;
+  --ink: #16181b;
+  --ink-2: #4b4f55;
+  --ink-3: #7b8087;
+  --rule: #e2e3e0;
+  --grid: #eceeeb;
+  --s1: #2a78d6;   /* bell02 */
+  --s2: #eb6834;   /* RefHorn */
+  --zero: #9aa0a6;
+  --m1: #1baf7a; --m2: #eda100; --m3: #e87ba4; --m4: #008300; --m5: #4a3aa7;
+  --band: rgb(42 120 214 / .08);
+  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141517; --surface: #1b1c1f; --ink: #f2f2ef; --ink-2: #c4c5bf; --ink-3: #8f9198;
+    --rule: #2c2e32; --grid: #25272b; --s1: #3987e5; --s2: #d95926; --zero: #6b7077;
+    --m1: #199e70; --m2: #c98500; --m3: #d55181; --m4: #008300; --m5: #9085e9; --band: rgb(57 135 229 / .12);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141517; --surface: #1b1c1f; --ink: #f2f2ef; --ink-2: #c4c5bf; --ink-3: #8f9198;
+  --rule: #2c2e32; --grid: #25272b; --s1: #3987e5; --s2: #d95926; --zero: #6b7077;
+  --m1: #199e70; --m2: #c98500; --m3: #d55181; --m4: #008300; --m5: #9085e9; --band: rgb(57 135 229 / .12);
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 28px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--font-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-size: 28px; line-height: 1.25; margin: 0; font-weight: 600; text-wrap: balance; }
+h2 { font-size: 19px; margin: 0; font-weight: 600; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0; font-weight: 600; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+.lede { color: var(--ink); }
+section { display: grid; gap: 14px; }
+.conds { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 24px; margin: 0; padding: 14px 0; border-block: 1px solid var(--rule); }
+.conds div { min-width: 0; }
+.conds dt { font-size: 12px; color: var(--ink-3); letter-spacing: .04em; }
+.conds dd { margin: 0; font-family: var(--font-data); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.findings { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 72ch; }
+.findings b { font-weight: 600; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 14px 10px; display: grid; gap: 8px; min-width: 0; }
+.fighead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font-data); font-size: 11px; fill: var(--ink-3); }
+.chart .lbl { fill: var(--ink-2); font-size: 11.5px; }
+figcaption { font-size: 12.5px; color: var(--ink-3); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 5px; padding: 6px 9px; font-family: var(--font-data); font-size: 12px; line-height: 1.5; color: var(--ink); box-shadow: 0 2px 10px rgb(0 0 0 / .12); white-space: nowrap; z-index: 2; }
+.tip .k { color: var(--ink-3); }
+.sw { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
+details { border-top: 1px solid var(--rule); padding-top: 10px; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+summary:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.tablewrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; font-family: var(--font-data); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 3px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
+th { color: var(--ink-3); font-weight: 500; }
+td.l, th.l { text-align: left; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
+.two > div { min-width: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">horn_design · impedance/bell02 · calcimp</div>
+    <h1>bell02 の音程チェック</h1>
+    <p class="lede">bell02(1番管 + ベル)を付けたホルンの入力インピーダンスを calcimp で計算し、RefHorn と同じ条件で比べた。右手補正あり。</p>
+  </header>
+
+  <dl class="conds" id="conds"></dl>
+
+  <section>
+    <h2>要点</h2>
+    <ul class="findings">
+      <li><b>bell02 は試算。</b>F 管の第2倍音を f' に対して −30 セントにし、オクターブの幅 3→6・4→8・6→12 を Bb・F とも +10 にする条件で、基本形と局所的な摂動1つを合わせ込んだ(⌀12 になる L = 1450 mm、リム ⌀300)。どの条件も ±1.1 セント以内。</li>
+      <li><b>Bb 管(f' = +15.9、a' = 442 Hz)。</b>f' に対して Bb(第2倍音)−20.9、f −9.9、bb −13.6、bb' −4.4、d'' −32.7 セント。オクターブの幅は 3→6 が +9.9、4→8 が +9.2、6→12 が +9.9。</li>
+      <li><b>F 管(f' = +25.9、延長量 939.3 mm)。</b>f' に対して F(第2倍音)−30.1、c −30.8、f −10.4、c' −21.0 セント。オクターブの幅は 3→6 が +9.8、4→8 が +10.4、6→12 が +11.1。</li>
+      <li><b>形の注意。</b>摂動は振幅 2.96 mm、中心はリムから 531 mm、周期 490 mm。リムから 450〜620 mm で径が最大 +11.7% 膨らむ。Bb の全長は 2782.3 mm(⌀12 の円筒を上流で 80.8 mm 縮める)。RefHorn は同じ条件で、F 管の延長量 944.1 mm。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>入力インピーダンス |Z|</h2>
+    <p>縦軸は対数(Pa·s/m)。ピークの位置が倍音の音程、高さが鳴りやすさの目安。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管(開放)</h3><div class="legend" data-legend="line"></div></div>
+      <div class="chart" id="impBb"></div>
+      <figcaption>カーソルを合わせると、その周波数での両方の |Z| を表示する。</figcaption>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管(開放)</h3><div class="legend" data-legend="line"></div></div>
+      <div class="chart" id="impF"></div>
+      <figcaption id="capF"></figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>f' を基準にした音程差</h2>
+    <p>Bb 管は第6倍音、F 管は第8倍音(どちらも f')のずれを 0 とし、各倍音のずれとの差を示す。f(f' のオクターブ下)が負ならオクターブが広く、正なら狭い。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管(f' = 第6倍音)</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="rBb"></div>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管(f' = 第8倍音)</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="rF"></div>
+    </figure>
+  </section>
+
+  <section>
+    <h2>倍音の音程(a' = <span data-a4></span> Hz の平均律からのセント)</h2>
+    <p>ピークとして認識できた倍音ごとに、Bb 管は Bb,、F 管は F, の倍音列に最も近い平均律の音からのずれ。音名はヘルムホルツ式(c' = 中央の c、c'' はその 1 オクターブ上)。第7・第11・第13・第14倍音などは、もともと平均律から外れる倍音。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="cBb"></div>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="cF"></div>
+    </figure>
+    <details>
+      <summary>数値の表を見る(第1倍音=ペダルは表だけに載せる。平均律から大きく外れる)</summary>
+      <div class="two" id="tables"></div>
+    </details>
+  </section>
+
+  <section>
+    <h2>管内の音圧分布(bell02)</h2>
+    <p>calcspd で求めた、各倍音のピーク周波数での音圧レベル(入力端 0.02 Pa)。横軸はベル開口を 0 とした、芯線に沿った長さ。薄く塗った範囲は局所的な摂動を入れた区間、点線は bell02 の始まり(⌀12 の端)。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管</h3><div class="legend" data-spdlegend="Bb"></div></div>
+      <div class="chart" id="sBb"></div>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管</h3><div class="legend" data-spdlegend="F"></div></div>
+      <div class="chart" id="sF"></div>
+      <figcaption>カーソルを合わせると、その位置での各倍音の音圧レベルを表示する。</figcaption>
+    </figure>
+  </section>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const META = /*META*/null;
+const SERIES = [
+  { key: "bell02", label: "bell02", color: "var(--s1)", shape: "circle" },
+  { key: "refhorn", label: "RefHorn", color: "var(--s2)", shape: "square" },
+];
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const fmt = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+
+document.querySelectorAll("[data-a4]").forEach((e) => { e.textContent = META.a4; });
+
+// Conditions
+const conds = [
+  ["全長 Bb(bell02 / RefHorn)", `${META.len.bell02_Bb} / ${META.len.refhorn_Bb} mm`],
+  ["F 管で足した円筒", `${META.extra.bell02} / ${META.extra.refhorn} mm`],
+  ["右手の挿入深さ", `${META.hand} mm`],
+  ["基準と温度", `a' = ${META.a4} Hz, 24 ℃`],
+  ["上流(共通)", "RefHorn x = 0〜1413 mm"],
+  ["計算", `calcimp 0〜${META.maxf} Hz, 1 Hz 刻み`],
+];
+const dl = document.getElementById("conds");
+for (const [k, v] of conds) {
+  const d = document.createElement("div");
+  d.innerHTML = `<dt>${k}</dt><dd>${v}</dd>`;
+  dl.appendChild(d);
+}
+document.getElementById("capF").textContent =
+  `F 管は Bb の経路に ⌀12 の円筒(bell02 ${META.extra.bell02} mm、RefHorn ${META.extra.refhorn} mm)を足した近似。長さは、F 管の f' が Bb 管の f' より ${META.f_above_bb} セント高くなるように決めた。`;
+
+// Legends
+document.querySelectorAll("[data-legend]").forEach((lg) => {
+  for (const s of SERIES) {
+    const sp = document.createElement("span");
+    const kind = lg.dataset.legend;
+    const mark = kind === "line"
+      ? `<span class="sw" style="border-color:${s.color}"></span>`
+      : `<svg width="12" height="12" aria-hidden="true">${s.shape === "circle"
+          ? `<circle cx="6" cy="6" r="4.5" fill="${s.color}"/>`
+          : `<rect x="1.5" y="1.5" width="9" height="9" rx="1.5" fill="${s.color}"/>`}</svg>`;
+    sp.innerHTML = `${mark}${s.label}`;
+    lg.appendChild(sp);
+  }
+});
+
+function frame(host, W, H, m) {
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" }, host);
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.hidden = true; host.appendChild(tip);
+  return { svg, tip, iw: W - m.l - m.r, ih: H - m.t - m.b };
+}
+
+function placeTip(host, tip, px, py) {
+  const r = host.getBoundingClientRect();
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = px + 14, y = py - th - 10;
+  if (x + tw > r.width) x = px - tw - 14;
+  if (y < 0) y = py + 14;
+  tip.style.left = `${Math.max(0, x)}px`; tip.style.top = `${y}px`;
+}
+
+// Impedance chart: log-scaled |Z|
+function impChart(id, key) {
+  const host = document.getElementById(id);
+  const W = 860, H = 330, m = { l: 58, r: 12, t: 10, b: 34 };
+  const { svg, tip, iw, ih } = frame(host, W, H, m);
+  const sets = SERIES.map((s) => DATA.imp[`${s.key}_${key}`]);
+  const all = sets.flat().map((p) => p[1]);
+  const lo = Math.floor(Math.log10(Math.min(...all))), hi = Math.ceil(Math.log10(Math.max(...all)));
+  const xmax = META.maxf;
+  const X = (f) => m.l + (f / xmax) * iw;
+  const Y = (v) => m.t + ih - ((Math.log10(v) - lo) / (hi - lo)) * ih;
+  const g = el("g", {}, svg);
+  for (let d = lo; d <= hi; d++) {
+    for (let k = 1; k < 10; k++) {
+      const v = k * 10 ** d;
+      if (Math.log10(v) > hi) break;
+      el("line", { x1: m.l, x2: m.l + iw, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": k === 1 ? 1 : 0.5 }, g);
+    }
+    const t = el("text", { x: m.l - 8, y: Y(10 ** d) + 4, "text-anchor": "end" }, g);
+    t.textContent = `10${["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸"][d] ?? "^" + d}`;
+  }
+  for (let f = 0; f <= xmax; f += 250) {
+    el("line", { x1: X(f), x2: X(f), y1: m.t, y2: m.t + ih, stroke: "var(--grid)" }, g);
+    const t = el("text", { x: X(f), y: m.t + ih + 18, "text-anchor": "middle" }, g);
+    t.textContent = f;
+  }
+  const xl = el("text", { x: m.l + iw, y: H - 2, "text-anchor": "end", class: "lbl" }, g); xl.textContent = "周波数 (Hz)";
+  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = "|Z|";
+  SERIES.forEach((s, i) => {
+    const d = sets[i].map((p, j) => `${j ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": 1.6, "stroke-linejoin": "round", opacity: i ? 0.95 : 1 }, svg);
+  });
+  const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: "var(--ink-3)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const dots = SERIES.map((s) => el("circle", { r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg));
+  const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }, svg);
+  const move = (ev) => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const f = Math.max(0, Math.min(xmax, ((p.x - m.l) / iw) * xmax));
+    const idx = sets.map((arr) => Math.max(0, Math.min(arr.length - 1, Math.round(f / (arr[1][0] - arr[0][0])) - 1)));
+    const fx = sets[0][idx[0]][0];
+    cross.setAttribute("x1", X(fx)); cross.setAttribute("x2", X(fx)); cross.setAttribute("visibility", "visible");
+    let html = `<div><span class="k">f</span> ${fx.toFixed(0)} Hz</div>`;
+    SERIES.forEach((s, i) => {
+      const v = sets[i][idx[i]][1];
+      dots[i].setAttribute("cx", X(fx)); dots[i].setAttribute("cy", Y(v)); dots[i].setAttribute("visibility", "visible");
+      html += `<div><span style="color:${s.color}">●</span> ${s.label} ${v.toExponential(2)} <span class="k">(${(20 * Math.log10(v)).toFixed(1)} dB)</span></div>`;
+    });
+    tip.innerHTML = html;
+    const r = svg.getBoundingClientRect();
+    placeTip(host, tip, ((X(fx)) / W) * r.width, (ev.clientY - r.top));
+  };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dots.forEach((d) => d.setAttribute("visibility", "hidden")); });
+}
+
+// Cents chart by partial. rel = true: relative to the f' partial (REF) of each instrument.
+function centsChart(id, key, rel = false) {
+  const host = document.getElementById(id);
+  const W = 860, H = 320, m = { l: 52, r: 12, t: 12, b: 38 };
+  const { svg, tip, iw, ih } = frame(host, W, H, m);
+  const refN = META.ref[key];
+  const sets = SERIES.map((s) => {
+    const arr = DATA.cents[`${s.key}_${key}`].filter((p) => p.n >= 2);  // 第1倍音(ペダル)は表だけに載せる
+    if (!rel) return arr;
+    const r = arr.find((p) => p.n === refN).c;
+    return arr.map((p) => ({ ...p, c: Math.round((p.c - r) * 10) / 10 }));
+  });
+  const nmax = Math.max(...sets.flat().map((p) => p.n));
+  const cs = sets.flat().map((p) => p.c);
+  const lo = Math.min(-100, Math.floor(Math.min(...cs) / 25) * 25), hi = Math.max(100, Math.ceil(Math.max(...cs) / 25) * 25);
+  const X = (n) => m.l + ((n - 1.5) / (nmax - 0.5)) * iw;
+  const Y = (c) => m.t + ih - ((c - lo) / (hi - lo)) * ih;
+  const g = el("g", {}, svg);
+  for (let c = lo; c <= hi; c += 25) {
+    const zero = c === 0;
+    el("line", { x1: m.l, x2: m.l + iw, y1: Y(c), y2: Y(c), stroke: zero ? "var(--zero)" : "var(--grid)", "stroke-width": zero ? 1.2 : 1 }, g);
+    if (c % 50 === 0) { const t = el("text", { x: m.l - 8, y: Y(c) + 4, "text-anchor": "end" }, g); t.textContent = c > 0 ? `+${c}` : c; }
+  }
+  for (let n = 2; n <= nmax; n++) {
+    if (n % 2 === 0 || nmax <= 16) { const t = el("text", { x: X(n), y: m.t + ih + 16, "text-anchor": "middle" }, g); t.textContent = n; }
+  }
+  const xl = el("text", { x: m.l + iw, y: H - 2, "text-anchor": "end", class: "lbl" }, g); xl.textContent = "倍音番号";
+  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = rel ? "f' との差" : "セント";
+  if (rel) {
+    el("line", { x1: X(refN), x2: X(refN), y1: m.t, y2: m.t + ih, stroke: "var(--zero)", "stroke-dasharray": "2 4" }, g);
+    const t = el("text", { x: X(refN) + 4, y: m.t + 10, class: "lbl" }, g); t.textContent = "f'";
+    if (refN / 2 >= 2) {
+      el("line", { x1: X(refN / 2), x2: X(refN / 2), y1: m.t, y2: m.t + ih, stroke: "var(--zero)", "stroke-dasharray": "2 4" }, g);
+      const u = el("text", { x: X(refN / 2) + 4, y: m.t + 10, class: "lbl" }, g); u.textContent = "f";
+    }
+  }
+  SERIES.forEach((s, i) => {
+    const d = sets[i].map((p, j) => `${j ? "L" : "M"}${X(p.n).toFixed(1)},${Y(p.c).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": 1.2, opacity: 0.55 }, svg);
+  });
+  SERIES.forEach((s, i) => {
+    for (const p of sets[i]) {
+      const cx = X(p.n), cy = Y(p.c);
+      const mk = s.shape === "circle"
+        ? el("circle", { cx, cy, r: 4.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 2 }, svg)
+        : el("rect", { x: cx - 4.2, y: cy - 4.2, width: 8.4, height: 8.4, rx: 1.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 2 }, svg);
+      const hit = el("circle", { cx, cy, r: 11, fill: "transparent" }, svg);
+      hit.addEventListener("pointerenter", () => {
+        const other = sets[1 - i].find((q) => q.n === p.n);
+        const a = i === 0 ? p : other, b = i === 0 ? other : p;
+        const unit = rel ? "¢(f' との差)" : "¢";
+        let html = `<div><span class="k">第${p.n}倍音</span> ${p.note}</div>`;
+        if (a) html += `<div><span style="color:var(--s1)">●</span> bell02 ${a.f.toFixed(1)} Hz ${fmt(a.c)}${unit}</div>`;
+        if (b) html += `<div><span style="color:var(--s2)">■</span> RefHorn ${b.f.toFixed(1)} Hz ${fmt(b.c)}${unit}</div>`;
+        if (a && b) html += `<div><span class="k">差</span> ${fmt(a.c - b.c)}¢</div>`;
+        tip.innerHTML = html;
+        const r = svg.getBoundingClientRect();
+        placeTip(host, tip, (cx / W) * r.width, (cy / H) * r.height);
+      });
+      hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+    }
+  });
+}
+
+impChart("impBb", "Bb");
+impChart("impF", "F");
+centsChart("rBb", "Bb", true);
+centsChart("rF", "F", true);
+centsChart("cBb", "Bb");
+centsChart("cF", "F");
+
+// Pressure distribution along the centreline (x = 0 at the bell rim)
+const MODES = [
+  { n: "2", color: "var(--m1)", dash: "" },
+  { n: "3", color: "var(--m2)", dash: "8 4" },
+  { n: "4", color: "var(--m3)", dash: "3 3" },
+  { n: "6", color: "var(--m4)", dash: "10 3 2 3" },
+  { n: "8", color: "var(--m5)", dash: "1 3" },
+];
+const noteOf = (key, n) => (DATA.cents[`bell02_${key}`].find((p) => p.n === +n) || {}).note || "";
+document.querySelectorAll("[data-spdlegend]").forEach((lg) => {
+  const key = lg.dataset.spdlegend;
+  for (const m of MODES) {
+    const sp = document.createElement("span");
+    sp.innerHTML = `<svg width="22" height="8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="${m.color}" stroke-width="2" stroke-dasharray="${m.dash}"/></svg>第${m.n} ${noteOf(key, m.n)}`;
+    lg.appendChild(sp);
+  }
+});
+function spdChart(id, key) {
+  const host = document.getElementById(id);
+  const W = 860, H = 340, m = { l: 52, r: 12, t: 12, b: 36 };
+  const { svg, tip, iw, ih } = frame(host, W, H, m);
+  const D = DATA.spd[key];
+  const sets = MODES.map((md) => D.modes[md.n].pts);
+  const ys = sets.flat().map((p) => p[1]);
+  const lo = Math.floor(Math.min(...ys) / 10) * 10, hi = Math.ceil(Math.max(...ys) / 10) * 10;
+  const xmax = Math.ceil(D.total / 250) * 250;
+  const X = (x) => m.l + (x / xmax) * iw;
+  const Y = (v) => m.t + ih - ((v - lo) / (hi - lo)) * ih;
+  const g = el("g", {}, svg);
+  for (const p of META.perturb) {
+    el("rect", { x: X(p.lo), y: m.t, width: X(p.hi) - X(p.lo), height: ih, fill: "var(--band)" }, g);
+  }
+  for (let v = lo; v <= hi; v += 10) {
+    el("line", { x1: m.l, x2: m.l + iw, y1: Y(v), y2: Y(v), stroke: "var(--grid)" }, g);
+    const t = el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end" }, g); t.textContent = v;
+  }
+  for (let x = 0; x <= xmax; x += 250) {
+    el("line", { x1: X(x), x2: X(x), y1: m.t, y2: m.t + ih, stroke: "var(--grid)" }, g);
+    if (x % 500 === 0) { const t = el("text", { x: X(x), y: m.t + ih + 16, "text-anchor": "middle" }, g); t.textContent = x; }
+  }
+  el("line", { x1: X(META.bell02_len), x2: X(META.bell02_len), y1: m.t, y2: m.t + ih, stroke: "var(--zero)", "stroke-dasharray": "2 4" }, g);
+  const bl = el("text", { x: X(META.bell02_len) + 4, y: m.t + 10, class: "lbl" }, g); bl.textContent = "⌀12";
+  const xl = el("text", { x: m.l + iw, y: H - 2, "text-anchor": "end", class: "lbl" }, g); xl.textContent = "ベル開口からの長さ (mm)";
+  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = "dB";
+  MODES.forEach((md, i) => {
+    const d = sets[i].map((p, j) => `${j ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: md.color, "stroke-width": 1.8, "stroke-dasharray": md.dash, "stroke-linejoin": "round" }, svg);
+  });
+  const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: "var(--ink-3)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }, svg);
+  hit.addEventListener("pointermove", (ev) => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const x = Math.max(0, Math.min(D.total, ((p.x - m.l) / iw) * xmax));
+    cross.setAttribute("x1", X(x)); cross.setAttribute("x2", X(x)); cross.setAttribute("visibility", "visible");
+    let html = `<div><span class="k">ベル開口から</span> ${x.toFixed(0)} mm</div>`;
+    MODES.forEach((md, i) => {
+      const arr = sets[i];
+      let best = arr[0];
+      for (const q of arr) if (Math.abs(q[0] - x) < Math.abs(best[0] - x)) best = q;
+      html += `<div><span style="color:${md.color}">━</span> 第${md.n} ${noteOf(key, md.n)} ${best[1].toFixed(1)} dB</div>`;
+    });
+    tip.innerHTML = html;
+    const r = svg.getBoundingClientRect();
+    placeTip(host, tip, (X(x) / W) * r.width, ev.clientY - r.top);
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+}
+spdChart("sBb", "Bb");
+spdChart("sF", "F");
+
+// Tables
+const tables = document.getElementById("tables");
+for (const key of ["Bb", "F"]) {
+  const a = DATA.cents[`bell02_${key}`], b = DATA.cents[`refhorn_${key}`];
+  const ra = a.find((p) => p.n === META.ref[key]).c, rb = b.find((p) => p.n === META.ref[key]).c;
+  const rows = a.map((p) => {
+    const q = b.find((x) => x.n === p.n);
+    return `<tr><td>${p.n}</td><td class="l">${p.note}</td><td>${p.f.toFixed(1)}</td><td>${fmt(p.c)}</td><td>${fmt(p.c - ra)}</td><td>${q ? q.f.toFixed(1) : ""}</td><td>${q ? fmt(q.c) : ""}</td><td>${q ? fmt(q.c - rb) : ""}</td></tr>`;
+  }).join("");
+  const d = document.createElement("div");
+  d.innerHTML = `<h3>${key} 管(f' = 第${META.ref[key]}倍音)</h3><div class="tablewrap"><table><thead><tr><th>n</th><th class="l">音</th><th>bell02 Hz</th><th>¢</th><th>f' 差</th><th>RefHorn Hz</th><th>¢</th><th>f' 差</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  tables.appendChild(d);
+}
+</script>
