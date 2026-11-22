@@ -20,8 +20,9 @@ COLLAR_R_IN = OD / 2  # 6.8
 COLLAR_R_OUT = 7.8
 
 
-def outer_tube():
-    tube = Cylinder(OD / 2, LENGTH, align=(Align.CENTER, Align.CENTER, Align.MIN))
+def outer_tube(length: float = LENGTH):
+    """length: 管の全長(つばの側 z=0 から)。既定は FreeCAD の 55。"""
+    tube = Cylinder(OD / 2, length, align=(Align.CENTER, Align.CENTER, Align.MIN))
     # つば(断面は XZ 面。x=半径、y=軸方向 Z)
     a = 5.3  # 先端の円弧の半径
     cx, cy = 2.5, 0.8
@@ -36,7 +37,7 @@ def outer_tube():
         make_face()
     collar = revolve(sk.sketch, Axis.Z)
     solid = tube + collar
-    bore = Cylinder(ID / 2, LENGTH, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    bore = Cylinder(ID / 2, length, align=(Align.CENTER, Align.CENTER, Align.MIN))
     return solid - bore
 
 

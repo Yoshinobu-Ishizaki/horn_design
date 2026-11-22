@@ -3,7 +3,7 @@
 頭管と中管は、同じ寸法の管(外径 12.8 / 内径 12.0)。頭管の直管の端面(y=0)に、中管の端面を突き合わせて同軸に連結する。
 座標は頭管(ubows.py / bows.py)と同じ: 頭管は XY 平面内で、キャップが +Y 側、2 本の直管の端が (±P/2, 0)。
 中管は y=0 から -Y 方向へ長さ TUBE_L(軸は Y)。
-頭管: ピッチ 20 の U 字 = f2bow(R10 の半円、直管 4 mm)。ピッチ 20 以外は ubows.u_bow(ピッチ)(ピッチ ≤ 30 は半円、それ以上は G2 のスプライン)。
+頭管: ピッチ 20 の U 字 = f2bow(R10 の半円、直管 5 mm)。ピッチ 20 以外は ubows.u_bow(ピッチ)(ピッチ ≤ 30 は半円、それ以上は G2 のスプライン)。
 中管の長さは仮(既存の inner_tube の sl-b2 = 42)。
 """
 
@@ -28,7 +28,7 @@ TUBE_L = LENGTHS["sl-b2"]  # 42(仮)
 def build(pitch: float = PITCH, tube_l: float = TUBE_L):
     """戻り値: (頭管, 左の中管, 右の中管, 頭管の情報)。"""
     if abs(pitch - 20.0) < 1e-9:
-        b, info = bows.bow("f2bow"), dict(kind="f2bow(半円 R10、直管 4)")
+        b, info = bows.bow("f2bow"), dict(kind="f2bow(半円 R10、直管 5)")
     else:
         b, info = ubows.u_bow(pitch)
     # 中管: 軸 Z(0〜L)を、Rot(90,0,0) で Z → -Y に(y=0 から -Y 方向へ長さ L)。左右の直管の軸 x = ±P/2。
