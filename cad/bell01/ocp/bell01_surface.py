@@ -139,18 +139,19 @@ def main() -> None:
               f"volume_ratio {chk['volume_ratio']:.6f}")
 
     # 1番管: ベルの終点から、メンズール関数が 12.00 になる L まで(L はベルの終点からの距離にずらす)
-    from make_centerline import ASSEMBLY_ROT_Z, TOTAL, build_branch_wire, geometry
+    from make_centerline import ASSEMBLY_ROT_Z, build_branch_wire, geometry
     from make_mensur import diameter
 
     bcl = build_branch_wire()
     g = geometry()
-    Lb = np.linspace(TOTAL, g["l_branch_end"], 401)
+    l0b = cl.length  # 1番管のメンズールは、ベルの芯線の実際の長さから
+    Lb = np.linspace(l0b, g["l_branch_end"], 401)
     Db = diameter(Lb)
-    bshell, bprof = variable_pipe_law(bcl, Lb - TOTAL, Db)
+    bshell, bprof = variable_pipe_law(bcl, Lb - l0b, Db)
     print(f"branch1: centerline {bcl.length:.3f}, D {Db[0]:.3f} -> {Db[-1]:.3f}, faces {len(bshell.faces())} "
           f"valid {bshell.is_valid}")
     if a.check:
-        bsolid, _ = variable_pipe_law(bcl, Lb - TOTAL, Db, solid=True)
+        bsolid, _ = variable_pipe_law(bcl, Lb - l0b, Db, solid=True)
         bchk = check_variable_pipe(bsolid, bcl, bprof)
         print(f"branch1 check: dia_err_max {bchk['dia_err_max']:.4f} mm volume_ratio {bchk['volume_ratio']:.6f}")
     gap, where = clearance(cl, prof, bcl, bprof, wall=a.wall if a.wall > 0 else WALL_FOR_CLEARANCE)
@@ -160,7 +161,7 @@ def main() -> None:
     shapes, names, colors = [shell, bshell], ["bell01_bore", "branch1_bore"], ["#e0a020", "#c06020"]
     if a.wall > 0:
         wall, _ = variable_pipe_wall(cl, L, D, a.wall, method="sweep")
-        bwall, _ = variable_pipe_wall(bcl, Lb - TOTAL, Db, a.wall, method="sweep")
+        bwall, _ = variable_pipe_wall(bcl, Lb - l0b, Db, a.wall, method="sweep")
         print(f"wall t={a.wall}: bell faces {len(wall.faces())} valid {wall.is_valid}, "
               f"branch1 faces {len(bwall.faces())} valid {bwall.is_valid}")
         shapes, names = [wall, bwall], [f"bell01_wall_t{a.wall}", f"branch1_wall_t{a.wall}"]

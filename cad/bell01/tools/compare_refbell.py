@@ -129,13 +129,13 @@ def main() -> None:
         bore_b, _ = variable_pipe_law(cl_b, L_b, D_b)
         bore_h, _ = variable_pipe_law(cl_h, L_h, D_h)
         sys.path.insert(0, str(ROOT / "cad/bell01/tools"))
-        from make_centerline import TOTAL, build_branch_wire, geometry
+        from make_centerline import build_branch_wire, geometry
         from make_mensur import diameter
 
         g = geometry()
         bcl = build_branch_wire()
-        Lb = np.linspace(TOTAL, g["l_branch_end"], 401)
-        bore_br, _ = variable_pipe_law(bcl, Lb - TOTAL, diameter(Lb))
+        Lb = np.linspace(cl_b.length, g["l_branch_end"], 401)
+        bore_br, _ = variable_pipe_law(bcl, Lb - cl_b.length, diameter(Lb))
         # 渦巻き(細い側)の内側に接する円。直管部はこの円より内側に入る(inner_disk で測る)
         disk = Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face()
         cx, cy, ri = inner_disk(cl_b, prof_b)

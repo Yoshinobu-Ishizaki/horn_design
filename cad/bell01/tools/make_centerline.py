@@ -24,7 +24,7 @@ from pathlib import Path
 
 import ezdxf
 import numpy as np
-from build123d import Line, ThreePointArc, Vector, Wire
+from build123d import Line, Spline, ThreePointArc, Vector, Wire
 from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import CubicSpline
 from scipy.optimize import brentq
@@ -41,7 +41,6 @@ BRANCH_END_DY = 10.0  # 末端の直線の高さ: 組立姿勢で、円板の中
 ASSEMBLY_ROT_Z = 15.0  # 管体組立の基本姿勢: リム中心まわりに Z 軸で回す角度 (deg、+Z から見て反時計回り)
 N_SPIRAL = 161  # ベルの渦巻きのスプラインの通過点の数
 N_BRANCH = 161  # 1番管のスプラインの通過点の数
-BIARC_TOL = 0.01  # 渦巻きを円弧の列で近似するときの許容差 (mm)
 
 
 def _profile():
@@ -142,118 +141,33 @@ def _v(p) -> Vector:
     return Vector(float(p[0]), float(p[1]), 0)
 
 
-def _arc_from(p, t, q):
-    """点 p で接線 t を持ち、点 q を通る円弧の (中心, 符号付き半径)。直線なら None。"""
-    n = np.array([-t[1], t[0]])  # 左の法線
-    d = q - p
-    den = 2 * float(n @ d)
-    if abs(den) < 1e-12:
-        return None
-    r = float(d @ d) / den  # 正: 左回り(反時計回り)
-    return p + r * n, r
-
-
-def _arc_points(p, t, q):
-    """p(接線 t)から q への円弧の、中点を返す(ThreePointArc 用)。直線なら None。"""
-    a = _arc_from(p, t, q)
-    if a is None:
-        return None
-    c, r = a
-    a0 = math.atan2(p[1] - c[1], p[0] - c[0])
-    a1 = math.atan2(q[1] - c[1], q[0] - c[0])
-    sweep = (a1 - a0) % (2 * math.pi) if r > 0 else -((a0 - a1) % (2 * math.pi))
-    am = a0 + sweep / 2
-    return c + abs(r) * np.array([math.cos(am), math.sin(am)])
-
-
-def _biarc(p0, t0, p1, t1):
-    """(p0, t0) から (p1, t1) への2つの円弧(接線の長さが等しいバイアーク)。つなぎ目の点 j を返す。"""
-    v = p1 - p0
-    tt = t0 + t1
-    a = 2 * (1 - float(t0 @ t1))
-    b = float(v @ tt)
-    if a < 1e-12:
-        d = float(v @ v) / (4 * float(v @ t1))
-    else:
-        d = (-b + math.sqrt(b * b + a * float(v @ v))) / a
-    return (p0 + d * t0 + p1 - d * t1) / 2
-
-
-def _dev(pts, p0, t0, j, p1):
-    """点列 pts の、2つの円弧(p0→j、j→p1)からの最大のずれ。"""
-    out = []
-    a1 = _arc_from(p0, t0, j)
-    if a1 is not None:
-        c1, r1 = a1
-        rv = j - c1
-        tj = np.array([-rv[1], rv[0]]) / np.linalg.norm(rv) * np.sign(r1)
-    else:
-        tj = t0
-    a2 = _arc_from(j, tj, p1)
-    for q in pts:
-        ds = []
-        for a in (a1, a2):
-            if a is None:
-                continue
-            c, r = a
-            ds.append(abs(float(np.linalg.norm(q - c)) - abs(r)))
-        out.append(min(ds) if ds else 0.0)
-    return max(out) if out else 0.0, tj
-
-
-def biarc_edges(ls, pts, tans, l_a, l_b, tol=BIARC_TOL):
-    """曲線(L ごとの点 pts・単位接線 tans)の [l_a, l_b] を、接線が連続な円弧の列で近似する(許容差 tol)。"""
-    def at(lq):
-        p = np.array([np.interp(lq, ls, pts[:, 0]), np.interp(lq, ls, pts[:, 1])])
-        t = np.array([np.interp(lq, ls, tans[:, 0]), np.interp(lq, ls, tans[:, 1])])
-        return p, t / np.linalg.norm(t)
-
-    edges = []
-    stack = [(l_a, l_b)]
-    segs = []
-    while stack:
-        la, lb_ = stack.pop()
-        p0, t0 = at(la)
-        p1, t1 = at(lb_)
-        j = _biarc(p0, t0, p1, t1)
-        m = (ls > la) & (ls < lb_)
-        dev, _ = _dev(pts[m], p0, t0, j, p1)
-        if dev > tol and lb_ - la > 1.0:
-            mid = (la + lb_) / 2
-            stack.append((mid, lb_))
-            stack.append((la, mid))
-        else:
-            segs.append((p0, t0, j, p1))
-    for p0, t0, j, p1 in segs:
-        for a, ta, b in [(p0, t0, j), (j, None, p1)]:
-            if ta is None:  # 1つ目の円弧の終点の接線
-                c, r = _arc_from(p0, t0, j)
-                rv = j - c
-                ta = np.array([-rv[1], rv[0]]) / np.linalg.norm(rv) * np.sign(r)
-            mpt = _arc_points(a, ta, b)
-            if np.linalg.norm(b - a) < 1e-9:
-                continue
-            edges.append(Line(_v(a), _v(b)) if mpt is None else ThreePointArc(_v(a), _v(mpt), _v(b)))
-    return edges
-
-
 def build_wire(**kw) -> Wire:
-    """ベルの芯線(L = 0〜TOTAL)。渦巻きは、接線が連続な円弧の列(許容差 BIARC_TOL)。"""
+    """ベルの芯線(L = 0〜TOTAL)。渦巻きはスプライン。"""
     g = geometry(**kw)
+    t0, t1 = g["spiral_tan"]
     edges = [Line(_v((0, 0)), _v(g["q0"]))]
     if np.linalg.norm(g["q1"] - g["q0"]) > 1e-9:  # TH1 = 0 なら円弧なし(直線から直接渦巻き)
         edges.append(ThreePointArc(_v(g["q0"]), _v(g["qm"]), _v(g["q1"])))
-    ls = g["L_fine"]
-    edges += biarc_edges(ls, g["fine"], g["tan_fine"], float(ls[0]), TOTAL)
+    # tangent_scalars を省くと build123d が接線を拡大し、点の間隔と合わずに端にフックができる
+    edges.append(Spline(*[_v(p) for p in g["spiral"]], tangents=(_v(t0), _v(t1)), tangent_scalars=(1.0, 1.0)))
     return Wire(edges)
 
 
 def build_branch_wire(**kw) -> Wire:
-    """1番管の芯線(L = TOTAL〜D=12 の L)。始点はベルの終点。渦巻きは円弧の列、続けて円弧と直線。"""
+    """1番管の芯線(ベルの終点から D=12 の L まで)。渦巻き(スプライン)→ 円弧 BRANCH_ARC_R → 直線。"""
     g = geometry(**kw)
+    t0, t1 = g["branch_tan"]
     a0, am, a1 = g["arc"]
-    edges = biarc_edges(g["L_fine"], g["fine"], g["tan_fine"], TOTAL, g["l_exit"])
-    edges += [ThreePointArc(_v(a0), _v(am), _v(a1)), Line(_v(g["line"][0]), _v(g["line"][1]))]
+    edges = [
+        Spline(*[_v(p) for p in g["branch"]], tangents=(_v(t0), _v(t1)), tangent_scalars=(1.0, 1.0)),
+        ThreePointArc(_v(a0), _v(am), _v(a1)),
+    ]
+    # 末端の直線は、ベル(実際の長さ)と合わせて、全長が l_branch_end になる長さにする。
+    # 1番管のメンズールは、ベルの実際の長さから始める(bell01_surface.py)。
+    rest = (g["l_branch_end"] - build_wire(**kw).length) - sum(e.length for e in edges)
+    l0, l1 = g["line"]
+    u = (l1 - l0) / np.linalg.norm(l1 - l0)
+    edges.append(Line(_v(l0), _v(l0 + rest * u)))
     return Wire(edges)
 
 
