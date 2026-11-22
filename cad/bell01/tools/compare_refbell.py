@@ -117,7 +117,9 @@ def main() -> None:
              names=["bell01_bore", "bell01_centerline", "refbell_bore", "refbell_centerline"],
              # bell01: 真鍮の金色と赤い芯線、RefBell: 青と水色の芯線。重なりが見えるよう半透明
              colors=["#e0a020", "#e02020", "#2070e0", "#00b0d0"], alphas=[0.55, 1.0, 0.55, 1.0],
-             reset_camera=Camera.KEEP, tab="tree")
+             reset_camera=Camera.KEEP, tab="tree",
+             # 金属表示(metalness=1)はビューアに残り、色が灰色に見えるので、既定の材質に戻す
+             metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1)
 
 
 if __name__ == "__main__":
