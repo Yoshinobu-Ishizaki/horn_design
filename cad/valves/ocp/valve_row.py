@@ -1,5 +1,5 @@
 """植込管を x 方向に並べる(第 3 / 第 2 / 第 1 / 第 4 = x が -35 / 0 / +35 / +70)。
-第 4 植込は暫定で、枝管なし(ケースだけ)。第 4 植込のねじり(枝管を回して組み込む)はこれから。
+第 4 植込は x=70(第 1 から +35)。
 
 各植込管はユニット(ケース + 8 本の枝管、valve_assy.build())を、向きを反転して置く:
   ケースの上端(フランジのない側の端面、元の座標で z=47)を Z=0 の面に置き、Z 方向が逆を向くようにする。
@@ -15,7 +15,8 @@ from valve_case import valve_case
 from valve_units import PITCH
 
 Z_TOP = 47.0  # ケース上端(フランジのない側)の元の z
-VALVES = {"valve2": 0.0, "valve1": +PITCH, "valve3": -PITCH, "valve4": +2 * PITCH}  # 名前 → x
+VALVE4_X = 2 * PITCH  # 第 4 は第 1 から +35(x=70)
+VALVES = {"valve2": 0.0, "valve1": +PITCH, "valve3": -PITCH, "valve4": VALVE4_X}  # 名前 → x
 NO_KNUCKLE = {"valve4"}  # 枝管を付けない植込(暫定)
 
 # 第 4 植込の孔(ワールドの角度 [deg]、+x から反時計回り)。各階 3 個。
