@@ -1,0 +1,312 @@
+<title>bell01 Intonation Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; each chart is a full-width figure with its legend above and a caption below. */
+:root {
+  --bg: #fbfbf9;
+  --surface: #ffffff;
+  --ink: #16181b;
+  --ink-2: #4b4f55;
+  --ink-3: #7b8087;
+  --rule: #e2e3e0;
+  --grid: #eceeeb;
+  --s1: #2a78d6;   /* bell01 */
+  --s2: #eb6834;   /* RefHorn */
+  --zero: #9aa0a6;
+  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141517; --surface: #1b1c1f; --ink: #f2f2ef; --ink-2: #c4c5bf; --ink-3: #8f9198;
+    --rule: #2c2e32; --grid: #25272b; --s1: #3987e5; --s2: #d95926; --zero: #6b7077;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141517; --surface: #1b1c1f; --ink: #f2f2ef; --ink-2: #c4c5bf; --ink-3: #8f9198;
+  --rule: #2c2e32; --grid: #25272b; --s1: #3987e5; --s2: #d95926; --zero: #6b7077;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 28px; }
+header { display: grid; gap: 6px; }
+.eyebrow { font-family: var(--font-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font-size: 28px; line-height: 1.25; margin: 0; font-weight: 600; text-wrap: balance; }
+h2 { font-size: 19px; margin: 0; font-weight: 600; text-wrap: balance; }
+h3 { font-size: 15px; margin: 0; font-weight: 600; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+.lede { color: var(--ink); }
+section { display: grid; gap: 14px; }
+.conds { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 24px; margin: 0; padding: 14px 0; border-block: 1px solid var(--rule); }
+.conds div { min-width: 0; }
+.conds dt { font-size: 12px; color: var(--ink-3); letter-spacing: .04em; }
+.conds dd { margin: 0; font-family: var(--font-data); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.findings { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 72ch; }
+.findings b { font-weight: 600; }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 14px 10px; display: grid; gap: 8px; min-width: 0; }
+.fighead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font-data); font-size: 11px; fill: var(--ink-3); }
+.chart .lbl { fill: var(--ink-2); font-size: 11.5px; }
+figcaption { font-size: 12.5px; color: var(--ink-3); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 5px; padding: 6px 9px; font-family: var(--font-data); font-size: 12px; line-height: 1.5; color: var(--ink); box-shadow: 0 2px 10px rgb(0 0 0 / .12); white-space: nowrap; z-index: 2; }
+.tip .k { color: var(--ink-3); }
+.sw { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
+details { border-top: 1px solid var(--rule); padding-top: 10px; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+summary:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.tablewrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; font-family: var(--font-data); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 3px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
+th { color: var(--ink-3); font-weight: 500; }
+td.l, th.l { text-align: left; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 18px; }
+.two > div { min-width: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">horn_design · impedance/bell01 · calcimp</div>
+    <h1>bell01 の音程チェック</h1>
+    <p class="lede">bell01(1番管 + ベル)を付けたホルンの入力インピーダンスを calcimp で計算し、RefHorn と同じ条件で比べた。右手補正あり。</p>
+  </header>
+
+  <dl class="conds" id="conds"></dl>
+
+  <section>
+    <h2>要点</h2>
+    <ul class="findings">
+      <li><b>中音域から上は RefHorn とほぼ同じ並び。</b>Bb 管の第4〜12倍音は一様に約 −10 セント低く、これは全長の差(16.5 mm、−10.4 セント相当)なので抜差管で直る。F 管の第5倍音から上は ±10 セント以内。</li>
+      <li><b>最低音域(第2〜4倍音)が RefHorn より低い。</b>Bb 管の第2・第3倍音は −86・−61 セント、F 管の第3倍音(C3)は −72 セント。</li>
+      <li>F 管は F 側の実際の経路がなく、⌀12 の円筒を足して第6・第8倍音の平均が 0 セントになる長さにした近似。比べられるのは倍音どうしの並び。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>入力インピーダンス |Z|</h2>
+    <p>縦軸は対数(Pa·s/m)。ピークの位置が倍音の音程、高さが鳴りやすさの目安。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管(開放)</h3><div class="legend" data-legend="line"></div></div>
+      <div class="chart" id="impBb"></div>
+      <figcaption>カーソルを合わせると、その周波数での両方の |Z| を表示する。</figcaption>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管(開放)</h3><div class="legend" data-legend="line"></div></div>
+      <div class="chart" id="impF"></div>
+      <figcaption id="capF"></figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>倍音の音程(a' = 440 Hz の平均律からのセント)</h2>
+    <p>ピークとして認識できた倍音ごとに、Bb 管は Bb1、F 管は F1 の倍音列に最も近い平均律の音からのずれ。第7・第11・第13・第14倍音などは、もともと平均律から外れる倍音。</p>
+    <figure>
+      <div class="fighead"><h3>Bb 管</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="cBb"></div>
+    </figure>
+    <figure>
+      <div class="fighead"><h3>F 管</h3><div class="legend" data-legend="dot"></div></div>
+      <div class="chart" id="cF"></div>
+    </figure>
+    <details>
+      <summary>数値の表を見る</summary>
+      <div class="two" id="tables"></div>
+    </details>
+  </section>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const META = /*META*/null;
+const SERIES = [
+  { key: "bell01", label: "bell01", color: "var(--s1)", shape: "circle" },
+  { key: "refhorn", label: "RefHorn", color: "var(--s2)", shape: "square" },
+];
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const fmt = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+
+// Conditions
+const conds = [
+  ["全長 Bb(bell01 / RefHorn)", `${META.len.bell01_Bb} / ${META.len.refhorn_Bb} mm`],
+  ["F 管で足した円筒", `${META.extra.bell01} / ${META.extra.refhorn} mm`],
+  ["右手の挿入深さ", `${META.hand} mm`],
+  ["基準と温度", `a' = ${META.a4} Hz, 24 ℃`],
+  ["上流(共通)", "RefHorn x = 0〜1413 mm"],
+  ["計算", `calcimp 0〜${META.maxf} Hz, 1 Hz 刻み`],
+];
+const dl = document.getElementById("conds");
+for (const [k, v] of conds) {
+  const d = document.createElement("div");
+  d.innerHTML = `<dt>${k}</dt><dd>${v}</dd>`;
+  dl.appendChild(d);
+}
+document.getElementById("capF").textContent =
+  `F 管は Bb の経路に ⌀12 の円筒(bell01 ${META.extra.bell01} mm、RefHorn ${META.extra.refhorn} mm)を足した近似。`;
+
+// Legends
+document.querySelectorAll("[data-legend]").forEach((lg) => {
+  for (const s of SERIES) {
+    const sp = document.createElement("span");
+    const kind = lg.dataset.legend;
+    const mark = kind === "line"
+      ? `<span class="sw" style="border-color:${s.color}"></span>`
+      : `<svg width="12" height="12" aria-hidden="true">${s.shape === "circle"
+          ? `<circle cx="6" cy="6" r="4.5" fill="${s.color}"/>`
+          : `<rect x="1.5" y="1.5" width="9" height="9" rx="1.5" fill="${s.color}"/>`}</svg>`;
+    sp.innerHTML = `${mark}${s.label}`;
+    lg.appendChild(sp);
+  }
+});
+
+function frame(host, W, H, m) {
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" }, host);
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.hidden = true; host.appendChild(tip);
+  return { svg, tip, iw: W - m.l - m.r, ih: H - m.t - m.b };
+}
+
+function placeTip(host, tip, px, py) {
+  const r = host.getBoundingClientRect();
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = px + 14, y = py - th - 10;
+  if (x + tw > r.width) x = px - tw - 14;
+  if (y < 0) y = py + 14;
+  tip.style.left = `${Math.max(0, x)}px`; tip.style.top = `${y}px`;
+}
+
+// Impedance chart: log-scaled |Z|
+function impChart(id, key) {
+  const host = document.getElementById(id);
+  const W = 860, H = 330, m = { l: 58, r: 12, t: 10, b: 34 };
+  const { svg, tip, iw, ih } = frame(host, W, H, m);
+  const sets = SERIES.map((s) => DATA.imp[`${s.key}_${key}`]);
+  const all = sets.flat().map((p) => p[1]);
+  const lo = Math.floor(Math.log10(Math.min(...all))), hi = Math.ceil(Math.log10(Math.max(...all)));
+  const xmax = META.maxf;
+  const X = (f) => m.l + (f / xmax) * iw;
+  const Y = (v) => m.t + ih - ((Math.log10(v) - lo) / (hi - lo)) * ih;
+  const g = el("g", {}, svg);
+  for (let d = lo; d <= hi; d++) {
+    for (let k = 1; k < 10; k++) {
+      const v = k * 10 ** d;
+      if (Math.log10(v) > hi) break;
+      el("line", { x1: m.l, x2: m.l + iw, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": k === 1 ? 1 : 0.5 }, g);
+    }
+    const t = el("text", { x: m.l - 8, y: Y(10 ** d) + 4, "text-anchor": "end" }, g);
+    t.textContent = `10${["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸"][d] ?? "^" + d}`;
+  }
+  for (let f = 0; f <= xmax; f += 250) {
+    el("line", { x1: X(f), x2: X(f), y1: m.t, y2: m.t + ih, stroke: "var(--grid)" }, g);
+    const t = el("text", { x: X(f), y: m.t + ih + 18, "text-anchor": "middle" }, g);
+    t.textContent = f;
+  }
+  const xl = el("text", { x: m.l + iw, y: H - 2, "text-anchor": "end", class: "lbl" }, g); xl.textContent = "周波数 (Hz)";
+  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = "|Z|";
+  SERIES.forEach((s, i) => {
+    const d = sets[i].map((p, j) => `${j ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": 1.6, "stroke-linejoin": "round", opacity: i ? 0.95 : 1 }, svg);
+  });
+  const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: "var(--ink-3)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const dots = SERIES.map((s) => el("circle", { r: 4, fill: s.color, stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" }, svg));
+  const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }, svg);
+  const move = (ev) => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const f = Math.max(0, Math.min(xmax, ((p.x - m.l) / iw) * xmax));
+    const idx = sets.map((arr) => Math.max(0, Math.min(arr.length - 1, Math.round(f / (arr[1][0] - arr[0][0])) - 1)));
+    const fx = sets[0][idx[0]][0];
+    cross.setAttribute("x1", X(fx)); cross.setAttribute("x2", X(fx)); cross.setAttribute("visibility", "visible");
+    let html = `<div><span class="k">f</span> ${fx.toFixed(0)} Hz</div>`;
+    SERIES.forEach((s, i) => {
+      const v = sets[i][idx[i]][1];
+      dots[i].setAttribute("cx", X(fx)); dots[i].setAttribute("cy", Y(v)); dots[i].setAttribute("visibility", "visible");
+      html += `<div><span style="color:${s.color}">●</span> ${s.label} ${v.toExponential(2)} <span class="k">(${(20 * Math.log10(v)).toFixed(1)} dB)</span></div>`;
+    });
+    tip.innerHTML = html;
+    const r = svg.getBoundingClientRect();
+    placeTip(host, tip, ((X(fx)) / W) * r.width, (ev.clientY - r.top));
+  };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dots.forEach((d) => d.setAttribute("visibility", "hidden")); });
+}
+
+// Cents chart by partial
+function centsChart(id, key) {
+  const host = document.getElementById(id);
+  const W = 860, H = 320, m = { l: 52, r: 12, t: 12, b: 38 };
+  const { svg, tip, iw, ih } = frame(host, W, H, m);
+  const sets = SERIES.map((s) => DATA.cents[`${s.key}_${key}`]);
+  const nmax = Math.max(...sets.flat().map((p) => p.n));
+  const cs = sets.flat().map((p) => p.c);
+  const lo = Math.min(-100, Math.floor(Math.min(...cs) / 25) * 25), hi = Math.max(100, Math.ceil(Math.max(...cs) / 25) * 25);
+  const X = (n) => m.l + ((n - 1.5) / (nmax - 0.5)) * iw;
+  const Y = (c) => m.t + ih - ((c - lo) / (hi - lo)) * ih;
+  const g = el("g", {}, svg);
+  for (let c = lo; c <= hi; c += 25) {
+    const zero = c === 0;
+    el("line", { x1: m.l, x2: m.l + iw, y1: Y(c), y2: Y(c), stroke: zero ? "var(--zero)" : "var(--grid)", "stroke-width": zero ? 1.2 : 1 }, g);
+    if (c % 50 === 0) { const t = el("text", { x: m.l - 8, y: Y(c) + 4, "text-anchor": "end" }, g); t.textContent = c > 0 ? `+${c}` : c; }
+  }
+  for (let n = 2; n <= nmax; n++) {
+    if (n % 2 === 0 || nmax <= 16) { const t = el("text", { x: X(n), y: m.t + ih + 16, "text-anchor": "middle" }, g); t.textContent = n; }
+  }
+  const xl = el("text", { x: m.l + iw, y: H - 2, "text-anchor": "end", class: "lbl" }, g); xl.textContent = "倍音番号";
+  const yl = el("text", { x: 4, y: m.t + 10, class: "lbl" }, g); yl.textContent = "セント";
+  SERIES.forEach((s, i) => {
+    const d = sets[i].map((p, j) => `${j ? "L" : "M"}${X(p.n).toFixed(1)},${Y(p.c).toFixed(1)}`).join("");
+    el("path", { d, fill: "none", stroke: s.color, "stroke-width": 1.2, opacity: 0.55 }, svg);
+  });
+  SERIES.forEach((s, i) => {
+    for (const p of sets[i]) {
+      const cx = X(p.n), cy = Y(p.c);
+      const mk = s.shape === "circle"
+        ? el("circle", { cx, cy, r: 4.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 2 }, svg)
+        : el("rect", { x: cx - 4.2, y: cy - 4.2, width: 8.4, height: 8.4, rx: 1.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 2 }, svg);
+      const hit = el("circle", { cx, cy, r: 11, fill: "transparent" }, svg);
+      hit.addEventListener("pointerenter", () => {
+        const other = sets[1 - i].find((q) => q.n === p.n);
+        const a = i === 0 ? p : other, b = i === 0 ? other : p;
+        let html = `<div><span class="k">第${p.n}倍音</span> ${p.note}</div>`;
+        if (a) html += `<div><span style="color:var(--s1)">●</span> bell01 ${a.f.toFixed(1)} Hz ${fmt(a.c)}¢</div>`;
+        if (b) html += `<div><span style="color:var(--s2)">■</span> RefHorn ${b.f.toFixed(1)} Hz ${fmt(b.c)}¢</div>`;
+        if (a && b) html += `<div><span class="k">差</span> ${fmt(a.c - b.c)}¢</div>`;
+        tip.innerHTML = html;
+        const r = svg.getBoundingClientRect();
+        placeTip(host, tip, (cx / W) * r.width, (cy / H) * r.height);
+      });
+      hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+    }
+  });
+}
+
+impChart("impBb", "Bb");
+impChart("impF", "F");
+centsChart("cBb", "Bb");
+centsChart("cF", "F");
+
+// Tables
+const tables = document.getElementById("tables");
+for (const key of ["Bb", "F"]) {
+  const a = DATA.cents[`bell01_${key}`], b = DATA.cents[`refhorn_${key}`];
+  const rows = a.map((p) => {
+    const q = b.find((x) => x.n === p.n);
+    return `<tr><td>${p.n}</td><td class="l">${p.note}</td><td>${p.f.toFixed(1)}</td><td>${fmt(p.c)}</td><td>${q ? q.f.toFixed(1) : ""}</td><td>${q ? fmt(q.c) : ""}</td><td>${q ? fmt(p.c - q.c) : ""}</td></tr>`;
+  }).join("");
+  const d = document.createElement("div");
+  d.innerHTML = `<h3>${key} 管</h3><div class="tablewrap"><table><thead><tr><th>n</th><th class="l">音</th><th>bell01 Hz</th><th>¢</th><th>RefHorn Hz</th><th>¢</th><th>差</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  tables.appendChild(d);
+}
+</script>
