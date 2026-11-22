@@ -61,6 +61,16 @@ def read_imp(path: Path, step: int = 2) -> list[list[float]]:
     return [[round(float(f), 1), float(f"{v:.5g}")] for f, v in zip(a[:, 0], z)]
 
 
+def read_res_db(path: Path) -> np.ndarray:
+    """imppeak の .res の、各ピークの高さ (dB)。"""
+    v = []
+    for line in path.read_text().splitlines()[2:]:
+        c = line.split(",")
+        if len(c) >= 6:
+            v.append(float(c[5]))
+    return np.array(v)
+
+
 def read_res(path: Path) -> np.ndarray:
     f = []
     for line in path.read_text().splitlines()[2:]:
@@ -90,13 +100,15 @@ def men_length(path: Path) -> float:
 
 
 def main() -> None:
-    data = {"imp": {}, "cents": {}, "spd": {}}
+    data = {"imp": {}, "cents": {}, "spd": {}, "db": {}}
     for key in ("Bb", "F"):
         base = HERE / f"bell02_{key}_rh"
         data["spd"][key] = spd(base.with_suffix(".men"), base.with_suffix(".res"))
     for name, key in CASES:
         base = HERE / f"{name}_{key}_rh"
         data["imp"][f"{name}_{key}"] = read_imp(base.with_suffix(".imp"))
+        data["db"][f"{name}_{key}"] = [{"n": i + 1, "db": round(float(v), 2)}
+                                       for i, v in enumerate(read_res_db(base.with_suffix(".res"))) if i + 1 <= N_MAX]
         data["cents"][f"{name}_{key}"] = [
             {"n": n, "note": nm, "f": round(float(f), 2), "c": round(float(c), 1)}
             for n, nm, f, c in cents_vs_series(read_res(base.with_suffix(".res")), key)
