@@ -23,10 +23,8 @@ ROOT = WD.parent.parent
 CTR_DXF = WD / "bell01-ctr.dxf"
 LD_CSV = WD / "bell01-ld.csv"  # tools/make_mensur.py で作る(元は mensur/bell/bell_20180330_xyrev.csv)
 OUT = ROOT / "output/bell01"
-# 管体組立の基本姿勢: 設計の座標(リム中心 (0,0)、直管部は +Y、巻きは +X 側)を、リム中心まわりに
-# Z 軸で +15°(+Z から見て反時計回り)回す。設計の計算(芯線・メンズール・隙間)は設計の座標のまま行い、
-# STEP 出力と表示のときだけこの姿勢にする。
-ASSEMBLY_ROT_Z = 15.0  # deg
+# 管体組立の基本姿勢は make_centerline.ASSEMBLY_ROT_Z(リム中心まわりに Z 軸で +15°)。設計の計算
+# (芯線・メンズール・隙間)は設計の座標のまま行い、STEP 出力と表示のときだけこの姿勢にする。
 
 
 def read_centerline(path: Path, start=(0.0, 0.0)) -> Wire:
@@ -141,7 +139,7 @@ def main() -> None:
               f"volume_ratio {chk['volume_ratio']:.6f}")
 
     # 1番管: ベルの終点から、メンズール関数が 12.00 になる L まで(L はベルの終点からの距離にずらす)
-    from make_centerline import TOTAL, build_branch_wire, geometry
+    from make_centerline import ASSEMBLY_ROT_Z, TOTAL, build_branch_wire, geometry
     from make_mensur import diameter
 
     bcl = build_branch_wire()

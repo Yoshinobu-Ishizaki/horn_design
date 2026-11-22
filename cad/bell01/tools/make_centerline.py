@@ -6,8 +6,11 @@
   曲げの内側のシルエットが円になる(直径 2·RI)。始点で接線が連続になるように C を置く。
   STRAIGHT を長くすると、円板が上に上がる(全体の高さが上がる)。
   ベルは L = TOTAL で終わる(メンズールの終点を変えないため)。
-- 1番管: ベルの渦巻きをそのまま延ばし、内側の円の半径を RI から RI - BRANCH_DRI へ少しずつ減らして
-  内側へ曲げる(減らし方は (s^2)、s は 1番管の中の 0〜1。始点で接線も曲率も連続)。
+- 1番管: ベルの渦巻きをそのまま延ばし、内側の円の半径を RI から少しずつ減らして内側へ曲げる
+  (減らし方は BRANCH_DRI·s^2、s は 1番管の中の 0〜1。始点で接線も曲率も連続)。
+  渦巻きは途中でやめ、時計回りの円弧(半径 BRANCH_ARC_R)1つで、組立の基本姿勢(リム中心まわりに
+  Z 軸で ASSEMBLY_ROT_Z 回した姿勢)で +X を向く直線につなぎ、直線で終わる。直線の高さは、組立姿勢で
+  円板の中心より BRANCH_END_DY 上(暫定。valve section と組み立てるときに直す)。
   長さは、メンズール関数が D_BRANCH_END(12.00)になる L まで(bell01-ld.csv の最後の行)。
 
     uv run python cad/bell01/tools/make_centerline.py [out.dxf]
@@ -21,9 +24,10 @@ from pathlib import Path
 
 import ezdxf
 import numpy as np
-from build123d import Line, Spline, ThreePointArc, Vector, Wire
+from build123d import Line, ThreePointArc, Vector, Wire
 from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import CubicSpline
+from scipy.optimize import brentq
 
 WD = Path(__file__).resolve().parent.parent
 LD_CSV = WD / "bell01-ld.csv"
@@ -32,8 +36,12 @@ STRAIGHT = 250.0  # 直線 (mm)。円板に接するまで
 R1, TH1 = 100.0, 0.0  # 直線と渦巻きの間の円弧 (mm, deg)。0 なら円弧なし(直線から円板に巻き付ける)
 RI = 137.5  # 曲げに使う円板の半径 (mm)。直径 275
 BRANCH_DRI = 42.33  # 1番管で内側の円の半径を減らす量 (mm)。大きいほど内側へ曲がる
+BRANCH_ARC_R = 50.0  # 1番管の渦巻きから末端の直線へつなぐ円弧の半径 (mm)
+BRANCH_END_DY = 10.0  # 末端の直線の高さ: 組立姿勢で、円板の中心より上へ (mm)。暫定
+ASSEMBLY_ROT_Z = 15.0  # 管体組立の基本姿勢: リム中心まわりに Z 軸で回す角度 (deg、+Z から見て反時計回り)
 N_SPIRAL = 161  # ベルの渦巻きのスプラインの通過点の数
 N_BRANCH = 161  # 1番管のスプラインの通過点の数
+BIARC_TOL = 0.01  # 渦巻きを円弧の列で近似するときの許容差 (mm)
 
 
 def _profile():
@@ -48,8 +56,9 @@ def ri_of(ls, ri=RI, dri=BRANCH_DRI, l_branch_end=None):
     return ri - dri * s**2
 
 
-def geometry(straight=STRAIGHT, r1=R1, th1=TH1, ri=RI, dri=BRANCH_DRI, n=N_SPIRAL, nb=N_BRANCH):
-    """直線・円弧の端点と、渦巻き(ベル・1番管)の点列を返す。"""
+def geometry(straight=STRAIGHT, r1=R1, th1=TH1, ri=RI, dri=BRANCH_DRI, n=N_SPIRAL, nb=N_BRANCH,
+             arc_r=BRANCH_ARC_R, end_dy=BRANCH_END_DY, rot_z=ASSEMBLY_ROT_Z):
+    """直線・円弧の端点と、渦巻き(ベル・1番管)の点列、1番管の円弧と直線を返す(設計の座標)。"""
     D, l_end = _profile()
     q0 = np.array([0.0, straight])
     h0 = math.radians(90.0)
@@ -77,33 +86,175 @@ def geometry(straight=STRAIGHT, r1=R1, th1=TH1, ri=RI, dri=BRANCH_DRI, n=N_SPIRA
     tan = drho[:, None] * uu - np.sqrt(1 - drho**2)[:, None] * up
     ib = int(np.searchsorted(ls, TOTAL))
     bell_idx = np.unique(np.linspace(0, ib, n).round().astype(int))
-    br_idx = np.unique(np.linspace(ib, len(ls) - 1, nb).round().astype(int))
+    # 1番管: 渦巻きを L_exit でやめ、時計回りの円弧 arc_r で、組立姿勢の +X(設計の座標では -rot_z)を向く
+    # 直線(円板の中心から組立姿勢で end_dy 上)へつなぐ。L_exit は、円弧の終点が直線に乗る L。
+    h_end = math.radians(-rot_z)
+    u_line = np.array([math.cos(h_end), math.sin(h_end)])
+    n_line = np.array([-u_line[1], u_line[0]])  # 組立姿勢の +Y
+    base = c + end_dy * n_line
+    lb, pb, tb = ls[ib:], pts[ib:], tan[ib:]
+    hb = np.unwrap(np.arctan2(tb[:, 1], tb[:, 0]))
+
+    def right(q):
+        return np.array([math.sin(q), -math.cos(q)])
+
+    def arc_of(le):
+        p = np.array([np.interp(le, lb, pb[:, 0]), np.interp(le, lb, pb[:, 1])])
+        h = float(np.interp(le, lb, hb))
+        h = h_end + (h - h_end) % (2 * math.pi)  # 時計回りに h_end まで回す角度を 0〜2π に
+        ca = p + arc_r * right(h)
+        pe = ca - arc_r * right(h_end)
+        return p, h, ca, pe, h - h_end
+
+    def miss(le):
+        return float((arc_of(le)[3] - base) @ n_line)
+
+    grid = np.linspace(TOTAL + 1.0, l_end - 1.0, 3000)
+    f = np.array([miss(x) for x in grid])
+    l_exit = None
+    for k in range(len(grid) - 1):
+        if f[k] * f[k + 1] < 0 and abs(f[k]) < 50:
+            le = brentq(miss, grid[k], grid[k + 1], xtol=1e-9)
+            if l_end - le - arc_r * arc_of(le)[4] >= 0:
+                l_exit = le
+                break
+    if l_exit is None:
+        raise ValueError("1番管の渦巻きから直線へつなぐ円弧が見つからない(BRANCH_ARC_R・BRANCH_END_DY を見直す)")
+    p_ex, h_ex, ca, pe, sweep = arc_of(l_exit)
+    a0 = math.atan2(p_ex[1] - ca[1], p_ex[0] - ca[0])
+    pm = ca + arc_r * np.array([math.cos(a0 - sweep / 2), math.sin(a0 - sweep / 2)])
+    straight_len = l_end - l_exit - arc_r * sweep
+    p_end = pe + straight_len * u_line
+    # 渦巻き部分の通過点は、L = TOTAL〜l_exit の等間隔で取り直す(細かい点列の添字で取って終点を足すと、
+    # 終点の直前の点が近すぎることがあり、スプラインが壊れて MakePipeShell が落ちた)
+    lq = np.linspace(TOTAL, l_exit, nb)
+    branch = np.column_stack([np.interp(lq, lb, pb[:, 0]), np.interp(lq, lb, pb[:, 1])])
+    branch[-1] = p_ex
     return {"q0": q0, "qm": qm, "q1": q1, "c1": c1, "c": c, "ri": ri,
             "spiral": pts[bell_idx], "spiral_tan": tan[bell_idx[[0, -1]]],
-            "branch": pts[br_idx], "branch_tan": tan[br_idx[[0, -1]]],
-            "L_fine": ls, "fine": pts, "l_branch_end": l_end}
+            "branch": branch, "branch_tan": np.array([tan[ib], [math.cos(h_ex), math.sin(h_ex)]]),
+            "arc": (p_ex, pm, pe), "arc_centre": ca, "arc_sweep": sweep, "line": (pe, p_end),
+            "l_exit": l_exit, "straight_len": straight_len,
+            "L_fine": ls, "fine": pts, "tan_fine": tan, "l_branch_end": l_end}
 
 
 def _v(p) -> Vector:
     return Vector(float(p[0]), float(p[1]), 0)
 
 
+def _arc_from(p, t, q):
+    """点 p で接線 t を持ち、点 q を通る円弧の (中心, 符号付き半径)。直線なら None。"""
+    n = np.array([-t[1], t[0]])  # 左の法線
+    d = q - p
+    den = 2 * float(n @ d)
+    if abs(den) < 1e-12:
+        return None
+    r = float(d @ d) / den  # 正: 左回り(反時計回り)
+    return p + r * n, r
+
+
+def _arc_points(p, t, q):
+    """p(接線 t)から q への円弧の、中点を返す(ThreePointArc 用)。直線なら None。"""
+    a = _arc_from(p, t, q)
+    if a is None:
+        return None
+    c, r = a
+    a0 = math.atan2(p[1] - c[1], p[0] - c[0])
+    a1 = math.atan2(q[1] - c[1], q[0] - c[0])
+    sweep = (a1 - a0) % (2 * math.pi) if r > 0 else -((a0 - a1) % (2 * math.pi))
+    am = a0 + sweep / 2
+    return c + abs(r) * np.array([math.cos(am), math.sin(am)])
+
+
+def _biarc(p0, t0, p1, t1):
+    """(p0, t0) から (p1, t1) への2つの円弧(接線の長さが等しいバイアーク)。つなぎ目の点 j を返す。"""
+    v = p1 - p0
+    tt = t0 + t1
+    a = 2 * (1 - float(t0 @ t1))
+    b = float(v @ tt)
+    if a < 1e-12:
+        d = float(v @ v) / (4 * float(v @ t1))
+    else:
+        d = (-b + math.sqrt(b * b + a * float(v @ v))) / a
+    return (p0 + d * t0 + p1 - d * t1) / 2
+
+
+def _dev(pts, p0, t0, j, p1):
+    """点列 pts の、2つの円弧(p0→j、j→p1)からの最大のずれ。"""
+    out = []
+    a1 = _arc_from(p0, t0, j)
+    if a1 is not None:
+        c1, r1 = a1
+        rv = j - c1
+        tj = np.array([-rv[1], rv[0]]) / np.linalg.norm(rv) * np.sign(r1)
+    else:
+        tj = t0
+    a2 = _arc_from(j, tj, p1)
+    for q in pts:
+        ds = []
+        for a in (a1, a2):
+            if a is None:
+                continue
+            c, r = a
+            ds.append(abs(float(np.linalg.norm(q - c)) - abs(r)))
+        out.append(min(ds) if ds else 0.0)
+    return max(out) if out else 0.0, tj
+
+
+def biarc_edges(ls, pts, tans, l_a, l_b, tol=BIARC_TOL):
+    """曲線(L ごとの点 pts・単位接線 tans)の [l_a, l_b] を、接線が連続な円弧の列で近似する(許容差 tol)。"""
+    def at(lq):
+        p = np.array([np.interp(lq, ls, pts[:, 0]), np.interp(lq, ls, pts[:, 1])])
+        t = np.array([np.interp(lq, ls, tans[:, 0]), np.interp(lq, ls, tans[:, 1])])
+        return p, t / np.linalg.norm(t)
+
+    edges = []
+    stack = [(l_a, l_b)]
+    segs = []
+    while stack:
+        la, lb_ = stack.pop()
+        p0, t0 = at(la)
+        p1, t1 = at(lb_)
+        j = _biarc(p0, t0, p1, t1)
+        m = (ls > la) & (ls < lb_)
+        dev, _ = _dev(pts[m], p0, t0, j, p1)
+        if dev > tol and lb_ - la > 1.0:
+            mid = (la + lb_) / 2
+            stack.append((mid, lb_))
+            stack.append((la, mid))
+        else:
+            segs.append((p0, t0, j, p1))
+    for p0, t0, j, p1 in segs:
+        for a, ta, b in [(p0, t0, j), (j, None, p1)]:
+            if ta is None:  # 1つ目の円弧の終点の接線
+                c, r = _arc_from(p0, t0, j)
+                rv = j - c
+                ta = np.array([-rv[1], rv[0]]) / np.linalg.norm(rv) * np.sign(r)
+            mpt = _arc_points(a, ta, b)
+            if np.linalg.norm(b - a) < 1e-9:
+                continue
+            edges.append(Line(_v(a), _v(b)) if mpt is None else ThreePointArc(_v(a), _v(mpt), _v(b)))
+    return edges
+
+
 def build_wire(**kw) -> Wire:
-    """ベルの芯線(L = 0〜TOTAL)。"""
+    """ベルの芯線(L = 0〜TOTAL)。渦巻きは、接線が連続な円弧の列(許容差 BIARC_TOL)。"""
     g = geometry(**kw)
-    t0, t1 = g["spiral_tan"]
     edges = [Line(_v((0, 0)), _v(g["q0"]))]
     if np.linalg.norm(g["q1"] - g["q0"]) > 1e-9:  # TH1 = 0 なら円弧なし(直線から直接渦巻き)
         edges.append(ThreePointArc(_v(g["q0"]), _v(g["qm"]), _v(g["q1"])))
-    edges.append(Spline(*[_v(p) for p in g["spiral"]], tangents=(_v(t0), _v(t1))))
+    ls = g["L_fine"]
+    edges += biarc_edges(ls, g["fine"], g["tan_fine"], float(ls[0]), TOTAL)
     return Wire(edges)
 
 
 def build_branch_wire(**kw) -> Wire:
-    """1番管の芯線(L = TOTAL〜D=12 の L)。始点はベルの終点。"""
+    """1番管の芯線(L = TOTAL〜D=12 の L)。始点はベルの終点。渦巻きは円弧の列、続けて円弧と直線。"""
     g = geometry(**kw)
-    t0, t1 = g["branch_tan"]
-    return Wire([Spline(*[_v(p) for p in g["branch"]], tangents=(_v(t0), _v(t1)))])
+    a0, am, a1 = g["arc"]
+    edges = biarc_edges(g["L_fine"], g["fine"], g["tan_fine"], TOTAL, g["l_exit"])
+    edges += [ThreePointArc(_v(a0), _v(am), _v(a1)), Line(_v(g["line"][0]), _v(g["line"][1]))]
+    return Wire(edges)
 
 
 def write_dxf(out: Path, **kw) -> None:
@@ -122,6 +273,11 @@ def write_dxf(out: Path, **kw) -> None:
         s = msp.add_spline(fit_points=[tuple(p) for p in g[key]], dxfattribs={"layer": layer})
         s.dxf.start_tangent = (*tt[0], 0)
         s.dxf.end_tangent = (*tt[1], 0)
+    ca, (a0p, _, a1p) = g["arc_centre"], g["arc"]
+    s0 = math.degrees(math.atan2(a0p[1] - ca[1], a0p[0] - ca[0]))
+    s1 = math.degrees(math.atan2(a1p[1] - ca[1], a1p[0] - ca[0]))
+    msp.add_arc(tuple(ca), BRANCH_ARC_R, s1, s0, dxfattribs={"layer": "branch1"})  # 時計回りなので終点側から
+    msp.add_line(tuple(g["line"][0]), tuple(g["line"][1]), dxfattribs={"layer": "branch1"})
     msp.add_circle(tuple(g["c"]), g["ri"], dxfattribs={"layer": "inner_circle"})  # 参考
     doc.saveas(out)
 
@@ -137,6 +293,8 @@ def main(argv: list[str]) -> None:
     print(f"bell length target {TOTAL}, branch1 target {g['l_branch_end'] - TOTAL:.3f}")
     print(f"joint tangent gap {(w.tangent_at(1) - wb.tangent_at(0)).length:.2e}, position gap {(w.position_at(1) - wb.position_at(0)).length:.2e}")
     print(f"inner circle: centre ({g['c'][0]:.3f},{g['c'][1]:.3f}) R {RI} (D {2 * RI}); branch RI -> {RI - BRANCH_DRI}")
+    print(f"branch1: spiral to L {g['l_exit'] - TOTAL:.3f}, arc R{BRANCH_ARC_R} {math.degrees(g['arc_sweep']):.2f} deg, "
+          f"straight {g['straight_len']:.3f}")
     print(f"-> {out}")
 
 

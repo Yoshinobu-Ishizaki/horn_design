@@ -27,16 +27,18 @@ from pathlib import Path
 import numpy as np
 from build123d import (
     Circle,
-    Face,
     Plane,
     Shell,
     Solid,
     Vector,
     Wire,
 )
-from OCP.BRepFill import BRepFill
 from OCP.BRepOffset import BRepOffset_Skin
-from OCP.BRepOffsetAPI import BRepOffsetAPI_MakeOffsetShape, BRepOffsetAPI_MakePipeShell
+from OCP.BRepOffsetAPI import (
+    BRepOffsetAPI_MakeOffsetShape,
+    BRepOffsetAPI_MakePipeShell,
+    BRepOffsetAPI_ThruSections,
+)
 from OCP.GeomAbs import GeomAbs_Arc
 from OCP.gp import gp_Dir
 from OCP.Law import Law_BSpFunc, Law_BSpline
@@ -199,7 +201,9 @@ def variable_pipe_law(
     # 芯線の全長に割り当てるので、切り詰めないと、短い表・途中から始まる表で形が引き伸ばされる。
     l0, l1 = float(nodes[0]), float(nodes[-1])
     spine = centerline
-    if l0 > 1e-9 or l1 < centerline.length - 1e-9:
+    # 許容差は 1e-4 mm。1e-9 だと、表の終わりと芯線の長さの数値誤差(1e-5 mm 程度)でも切り詰めが走り、
+    # 複数の辺(スプライン・円弧・直線)からなる芯線では、その切り詰めの後の MakePipeShell が落ちた。
+    if l0 > 1e-4 or l1 < centerline.length - 1e-4:
         spine = centerline.trim(l0 / centerline.length, l1 / centerline.length)
     nodes = nodes - l0  # 法則関数の変数は、切り詰めた芯線の始点からの距離
     bs = make_interp_spline(nodes, prof(nodes + l0) / d0, k=3)
@@ -298,7 +302,16 @@ def _close_wall(inner: Shell, outer: Shell) -> Solid:
     caps = []
     for ei in ri:
         eo = min(ro, key=lambda x: (x.center() - ei.center()).length)
-        caps.append(Face(BRepFill.Face_s(ei.wrapped, eo.wrapped)))
+        # 内外の縁の円を線織面で結ぶ。BRepFill.Face_s は2つの円の始点・向きをそろえないので、ずれると面が
+        # ねじれて膨らむ(ベルの終端でドーム状になった)。ThruSections は CheckCompatibility でそろえる。
+        ts = BRepOffsetAPI_ThruSections(False, True)
+        ts.AddWire(Wire([ei]).wrapped)
+        ts.AddWire(Wire([eo]).wrapped)
+        ts.CheckCompatibility(True)
+        ts.Build()
+        if not ts.IsDone():
+            raise RuntimeError("端の面を作れない")
+        caps.append(Shell(ts.Shape()).faces()[0])
     wall = Solid(Shell(list(inner.faces()) + list(outer.faces()) + caps))
     if wall.volume < 0:
         wall = Solid(wall.wrapped.Reversed())
@@ -322,9 +335,18 @@ def _offset_sweep(centerline: Wire, prof: DiameterProfile, dist: float, n: int =
     ro = r + dist / k
     if np.any(np.diff(lo) <= 0):
         raise RuntimeError("オフセット後の L が単調でない(曲率が大きすぎる)")
-    # 芯線の範囲 [0, 芯線の長さ] に収める(端のはみ出しは dist·r'/√(1+r'²) 程度)
+    # 芯線の範囲 [0, 芯線の長さ] に収める(端のはみ出しは dist·r'/√(1+r'²) 程度)。
+    # 切ったら、その端ちょうど(0 または芯線の長さ)の点を補間して足す。足さないと、外面が表の点の間隔だけ
+    # 手前で終わり、端の面が斜めの帯になる(ベルの終端で 0.21 mm 手前になっていた)。
     keep = (lo >= 0) & (lo <= centerline.length)
-    outer, _ = variable_pipe_law(centerline, lo[keep], 2 * ro[keep], **kw)
+    lk, rk = lo[keep], ro[keep]
+    if lo[-1] > centerline.length and lk[-1] < centerline.length - 1e-9:
+        lk = np.append(lk, centerline.length)
+        rk = np.append(rk, np.interp(centerline.length, lo, ro))
+    if lo[0] < 0 and lk[0] > 1e-9:
+        lk = np.insert(lk, 0, 0.0)
+        rk = np.insert(rk, 0, np.interp(0.0, lo, ro))
+    outer, _ = variable_pipe_law(centerline, lk, 2 * rk, **kw)
     return outer
 
 
