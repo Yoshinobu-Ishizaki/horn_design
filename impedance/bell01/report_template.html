@@ -118,7 +118,7 @@ td.l, th.l { text-align: left; }
   </section>
 
   <section>
-    <h2>倍音の音程(a' = 440 Hz の平均律からのセント)</h2>
+    <h2>倍音の音程(a' = <span data-a4></span> Hz の平均律からのセント)</h2>
     <p>ピークとして認識できた倍音ごとに、Bb 管は Bb1、F 管は F1 の倍音列に最も近い平均律の音からのずれ。第7・第11・第13・第14倍音などは、もともと平均律から外れる倍音。</p>
     <figure>
       <div class="fighead"><h3>Bb 管</h3><div class="legend" data-legend="dot"></div></div>
@@ -150,6 +150,8 @@ const el = (tag, attrs = {}, parent) => {
   return e;
 };
 const fmt = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+
+document.querySelectorAll("[data-a4]").forEach((e) => { e.textContent = META.a4; });
 
 // Conditions
 const conds = [
