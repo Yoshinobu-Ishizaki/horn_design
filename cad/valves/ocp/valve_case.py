@@ -9,7 +9,7 @@
 
 import math
 
-from build123d import Axis, BuildLine, BuildSketch, Cylinder, Line, Plane, Pos, Rot, make_face, revolve
+from build123d import Align, Axis, BuildLine, BuildSketch, Cylinder, Line, Plane, Pos, Rot, make_face, revolve
 
 TAPER_DEG = 1.73
 R_TOP_IN = 11.0
@@ -44,7 +44,10 @@ def profile_points():
     ]
 
 
-def valve_case(spacing: float = SPACING, z_low: float = Z_LOW):
+def valve_case(spacing: float = SPACING, z_low: float = Z_LOW, openings=None):
+    """openings=None: 各段に ±45° の貫通穴(4 か所の開口)。
+    openings = {z: [角度, ...]}: その段(z)は、軸から外向きに、指定した角度(Z まわり、+X から。ケースの座標)の穴だけを開ける
+    (片側ずつの穴。段ごとに指定。書かれていない段は穴なし)。"""
     pts = profile_points()
     with BuildSketch(Plane.XZ) as sk:  # x=半径、y=Z
         with BuildLine():
@@ -52,9 +55,15 @@ def valve_case(spacing: float = SPACING, z_low: float = Z_LOW):
                 Line(a, b)
         make_face()
     body = revolve(sk.sketch, Axis.Z)
-    for z in (z_low, z_low + spacing):
-        for ang in HOLE_ANGLES:
-            hole = Pos(0, 0, z) * Rot(0, 0, ang) * Rot(0, 90, 0) * Cylinder(R_HOLE, 60)
+    if openings is None:
+        for z in (z_low, z_low + spacing):
+            for ang in HOLE_ANGLES:
+                hole = Pos(0, 0, z) * Rot(0, 0, ang) * Rot(0, 90, 0) * Cylinder(R_HOLE, 60)
+                body = body - hole
+        return body
+    for z, angles in openings.items():
+        for ang in angles:  # 軸(x=0)から外向きに 25(ケースの外径 15 より十分長い)
+            hole = Pos(0, 0, z) * Rot(0, 0, ang) * Rot(0, 90, 0) * Cylinder(R_HOLE, 25, align=(Align.CENTER, Align.CENTER, Align.MIN))
             body = body - hole
     return body
 

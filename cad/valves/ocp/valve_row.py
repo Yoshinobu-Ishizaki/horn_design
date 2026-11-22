@@ -1,4 +1,5 @@
-"""植込管 3 つを x 方向に並べる(第 3 / 第 2 / 第 1 = x が -35 / 0 / +35)。
+"""植込管を x 方向に並べる(第 3 / 第 2 / 第 1 / 第 4 = x が -35 / 0 / +35 / +70)。
+第 4 植込は暫定で、枝管なし(ケースだけ)。第 4 植込のねじり(枝管を回して組み込む)はこれから。
 
 各植込管はユニット(ケース + 8 本の枝管、valve_assy.build())を、向きを反転して置く:
   ケースの上端(フランジのない側の端面、元の座標で z=47)を Z=0 の面に置き、Z 方向が逆を向くようにする。
@@ -10,22 +11,40 @@
 from build123d import Pos, Rot
 
 from valve_assy import build
+from valve_case import valve_case
 from valve_units import PITCH
 
 Z_TOP = 47.0  # ケース上端(フランジのない側)の元の z
-VALVES = {"valve2": 0.0, "valve1": +PITCH, "valve3": -PITCH}  # 名前 → x
+VALVES = {"valve2": 0.0, "valve1": +PITCH, "valve3": -PITCH, "valve4": +2 * PITCH}  # 名前 → x
+NO_KNUCKLE = {"valve4"}  # 枝管を付けない植込(暫定)
+
+# 第 4 植込の孔(ワールドの角度 [deg]、+x から反時計回り)。各階 3 個。
+#   1 階(F 階、z 小 = z=17): 第 1 側(-x)の (-x,+y) の孔(135°)をやめる → 45°, 225°, 315°
+#   2 階(B 階、z 大 = z=34): (+x,+y) の孔(45°)をやめる → 135°, 225°, 315°
+VALVE4_HOLES_WORLD = {"F1": [45.0, 225.0, 315.0], "F2": [135.0, 225.0, 315.0]}
 
 
-def place_unit(x0: float):
+def valve4_case():
+    """第 4 植込のケース(孔 6 個)。ケースの座標へ変換して作る: 反転(x → -x, z → 47 - z)なので、
+    ワールドの角度 φ はケースの角度 180° - φ、ワールドの階 F1(z=17)/F2(z=34)はケースの z=30/13。"""
+    to_local = lambda angs: [(180.0 - a) % 360.0 for a in angs]
+    z_f1_local, z_f2_local = Z_TOP - 17.0, Z_TOP - 34.0  # 30, 13
+    return valve_case(openings={z_f1_local: to_local(VALVE4_HOLES_WORLD["F1"]),
+                                z_f2_local: to_local(VALVE4_HOLES_WORLD["F2"])})
+
+
+def place_unit(x0: float, knuckles: bool = True):
     case, ks, names = build()
     T = Pos(x0, 0, Z_TOP) * Rot(0, 180, 0)
+    if not knuckles:
+        return T * valve4_case(), [], []
     return T * case, [T * k for k in ks], names
 
 
 def build_row():
     out = {}
     for vname, x0 in VALVES.items():
-        case, ks, names = place_unit(x0)
+        case, ks, names = place_unit(x0, vname not in NO_KNUCKLE)
         out[vname] = (case, ks, [f"{vname}_{n}" for n in names])
     return out
 
