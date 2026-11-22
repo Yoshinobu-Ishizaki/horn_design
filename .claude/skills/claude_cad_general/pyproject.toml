@@ -1,0 +1,24 @@
+# claude_cad 系スキルを別のリポジトリで使うときの共有の実行環境。
+# .claude/skills/claude_cad_general/ で `uv sync` すると .venv ができ、別のリポジトリからは
+#   uv run --project .claude/skills/claude_cad_general python <スクリプト>
+# で使う(相手のリポジトリには pyproject.toml・.venv を作らない)。版は uv.lock で固定する。
+# 依存を足したら `uv lock` で uv.lock を更新し、~/.claude/skills/ へ写して `uv sync` する(SKILL.md「実行環境」)。
+
+[project]
+name = "claude-cad-skills-env"
+version = "0.1.0"
+description = "Shared runtime for the claude_cad skills when used from other repositories"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "build123d>=0.13.0",
+    # VS Code の OCP CAD Viewer 拡張(4.2.0)と版をそろえる。拡張を上げたら、ここも上げる。
+    "ocp-vscode>=4.2.0,<4.3",
+    "ezdxf>=1.4.5",
+    "numpy>=2",
+    "matplotlib>=3.9",
+    "openpyxl>=3.1.5",
+    "polars>=1.0",
+]
+
+[tool.uv]
+package = false

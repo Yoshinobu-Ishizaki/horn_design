@@ -15,3 +15,12 @@ _site/*
 # ignore Mac's .DS_Store 
 .DS_Store
 
+
+# Python / build output
+__pycache__/
+*.pyc
+output/
+
+# company drawings (internal; do not publish)
+/jigs/*_seat/
+/.claude/skills/claude_cad_vss/sample/
