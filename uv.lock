@@ -597,6 +597,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ocp-viewer" },
     { name = "pytest" },
 ]
 
@@ -614,7 +615,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.2.0" }]
+dev = [
+    { name = "ocp-viewer", specifier = ">=1.3.0" },
+    { name = "pytest", specifier = ">=9.2.0" },
+]
 
 [[package]]
 name = "idna"
@@ -1189,6 +1193,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/27/1a/4866343159183b87c994bced36673c7f836abbc352259efbe949535f8933/ocp_tessellate-3.7.0.tar.gz", hash = "sha256:b1cf2404f4de0a14455400a0059e1fdd5125b57ff4793ee60ad368e430091b49", size = 145594, upload-time = "2026-11-20T16:22:50.777Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/05/f7f3c3be809da7ef0424c8db678eb87d95c54ed85230a7d8775a9a4a85c3/ocp_tessellate-3.7.0-py3-none-any.whl", hash = "sha256:44d5d14e67788b8249f1ff0ba74aa9959dbe0c8dbd2c5d74c85acb4322bae27f", size = 109320, upload-time = "2026-11-20T16:22:47.314Z" },
+]
+
+[[package]]
+name = "ocp-viewer"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "ocp-viewer-core", extra = ["cli"] },
+    { name = "orjson" },
+    { name = "pyyaml" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/85/e3/91150c9c4c72a96b9a5eae31cf3cae85c7de28cebc61ef9fa31f4b151e8a/ocp_viewer-1.3.0.tar.gz", hash = "sha256:c57d4d531059d63f774d6d703e1f7d96edb07ad59cc28116eabb772af2cc67a9", size = 1028539, upload-time = "2026-11-20T18:26:04.003Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/51/a93bd4adda2bf83302dbae9fb3cb19142585701fe1cd0438339ed0efce5e/ocp_viewer-1.3.0-py3-none-any.whl", hash = "sha256:9a6ce83b399e5e2b6488b933272601feb60a2e7d8804ecffcb8c22008b26cfd6", size = 1032574, upload-time = "2026-11-20T18:26:02.455Z" },
 ]
 
 [[package]]

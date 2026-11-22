@@ -44,7 +44,10 @@ function hoverStatusText(info, fromSolid, provider) {{
 
 def find_targets() -> list[Path]:
     root = Path.home() / ".vscode" / "extensions"
-    return sorted(d / REL for d in root.glob(EXT_GLOB) if (d / REL).is_file())
+    found = sorted(d / REL for d in root.glob(EXT_GLOB) if (d / REL).is_file())
+    # 独立ビューア(ocp_viewer パッケージ)の JS も対象にする。カレントの .venv から探す
+    found += sorted(Path.cwd().glob(".venv/lib/python*/site-packages/ocp_viewer/server/static/js/three-cad-viewer.esm.js"))
+    return found
 
 
 def is_patched(text: str) -> bool:
