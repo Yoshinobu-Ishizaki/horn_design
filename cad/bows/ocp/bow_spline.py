@@ -10,7 +10,7 @@ b1bow で作った方法を、どの頭管にも使えるよう一般化した�
   ・今の形状に近づける。入口側の曲げは今より急にしない(κ1 ≥ -1/R1)
 作り方: 今の曲率(区間ごとに一定、境目で不連続)の階段を、5 次のスムーズステップ(幅 W)でつなぐ。
   遷移でずれる「向きの変化」「終点」を厳密に満たすよう、区間の長さと曲率の値を、今の値からの変化が最小になるよう決める。
-  得られた曲線(κ(s) の積分)を B スプライン(300 点・次数 6・C2・許容 1e-5)にして、副法線を Z に固定して掃引する管
+  得られた曲線(κ(s) の積分)を B スプライン(0.45 mm 間隔の点・次数 6・C2・許容 1e-5)にして、副法線を Z に固定して掃引する管
   (外径 12.8 / 内径 12.0)にする。Frenet フレームは変曲点で向きが反転するので使わない。
 """
 
@@ -42,55 +42,81 @@ class Cfg:
     p1: np.ndarray  # スプラインの終点(出口の直線の始端)
     th1: float  # 終端の向き [rad]
     end: np.ndarray  # 出口の直線の終端
-    v0: np.ndarray  # 今の値 (l1, l2, l3, l4, k1, k3, k4)
+    L0: np.ndarray  # 今の各区間の長さ(円弧・直線)
+    K0: np.ndarray  # 今の各区間の曲率(直線は 0、+ は左折)
     wire: object  # 今の中心線
     total: float
     l_in: float
     l_out: float
 
+    @property
+    def n(self):
+        return len(self.L0)
+
+    @property
+    def arc(self):
+        return self.K0 != 0.0
+
+    @property
+    def v0(self):
+        return np.concatenate([self.L0, self.K0[self.arc]])
+
+    @property
+    def cap(self):
+        """曲げは今より急にしない: 全体の最小曲げ半径(最大の |κ|)。"""
+        return float(np.abs(self.K0).max())
+
 
 def config(name: str) -> Cfg:
+    """入口の直線 + 任意個の(円弧 / 直線)+ 出口の直線、の並びの頭管。"""
     d = bows.BOWS[name]
     segs = d["segs"]
     assert segs[0][0] == "L" and segs[-1][0] == "L"
     mid = segs[1:-1]
-    assert [m[0] for m in mid] == ["A", "L", "A", "A"], f"{name}: 想定外の構成 {mid}"
     wire, end, hend = bows.centerline(d["start"], d["heading"], segs)
     total = wire.length
     l_in, l_out = segs[0][1], segs[-1][1]
     p_at = lambda s: wire.position_at(s / total)
     q0, q1, qe = p_at(l_in), p_at(total - l_out), p_at(total)
-    (_, r1, a1), (_, ll), (_, r3, a3), (_, r4, a4) = mid[0], mid[1], mid[2], mid[3]
-    sgn = lambda a: 1.0 if a > 0 else -1.0
-    v0 = np.array([r1 * math.radians(abs(a1)), ll, r3 * math.radians(abs(a3)), r4 * math.radians(abs(a4)),
-                   sgn(a1) / r1, sgn(a3) / r3, sgn(a4) / r4])
+    L0, K0, turn = [], [], 0.0
+    for m in mid:
+        if m[0] == "L":
+            L0.append(m[1]); K0.append(0.0)
+        else:
+            _, r, a = m
+            L0.append(r * math.radians(abs(a))); K0.append((1.0 if a > 0 else -1.0) / r); turn += a
     th0 = math.radians(d["heading"])
-    th1 = th0 + math.radians(a1 + a3 + a4)
-    return Cfg(name, np.array(d["start"]), th0, np.array([q0.X, q0.Y]), np.array([q1.X, q1.Y]), th1,
-               np.array([qe.X, qe.Y]), v0, wire, total, l_in, l_out)
+    return Cfg(name, np.array(d["start"]), th0, np.array([q0.X, q0.Y]), np.array([q1.X, q1.Y]), th0 + math.radians(turn),
+               np.array([qe.X, qe.Y]), np.array(L0), np.array(K0), wire, total, l_in, l_out)
 
 
-def kappa(s, v, w):
-    l1, l2, l3, l4, k1, k3, k4 = v
-    b1, b2, b3 = l1, l1 + l2, l1 + l2 + l3
-    L = b3 + l4
-    return (
-        k1 * smooth(s / w)  # 入口: 0 → κ1
-        - k1 * smooth((s - (b1 - w / 2)) / w)  # κ1 → 0(直線)
-        + k3 * smooth((s - (b2 - w / 2)) / w)  # 0 → κ3
-        + (k4 - k3) * smooth((s - (b3 - w / 2)) / w)  # κ3 → κ4
-        - k4 * smooth((s - (L - w)) / w)  # 出口: κ4 → 0
-    )
+def unpack(cfg: Cfg, v):
+    L = np.asarray(v[: cfg.n], float)
+    K = np.zeros(cfg.n)
+    K[cfg.arc] = v[cfg.n:]
+    return L, K
 
 
-def length(v):
-    return float(v[0] + v[1] + v[2] + v[3])
+def kappa(s, L, K, w):
+    """各区間の曲率 K[j](長さ L[j])の階段を、境目ごとの 5 次スムーズステップ(幅 w)でつないだ κ(s)。
+    入口で 0 → K[0]、出口で K[-1] → 0。"""
+    b = np.cumsum(L)
+    tot = b[-1]
+    k = K[0] * smooth(s / w)
+    for j in range(len(L) - 1):
+        k = k + (K[j + 1] - K[j]) * smooth((s - (b[j] - w / 2)) / w)
+    return k - K[-1] * smooth((s - (tot - w)) / w)
+
+
+def length(v, cfg=None):
+    return float(np.sum(v[: cfg.n])) if cfg is not None else float(np.sum(v))
 
 
 def integrate(cfg: Cfg, v, w):
-    L = length(v)
-    s = np.linspace(0.0, L, N + 1)
-    k = kappa(s, v, w)
+    L, K = unpack(cfg, v)
+    tot = float(L.sum())
+    s = np.linspace(0.0, tot, N + 1)
+    k = kappa(s, L, K, w)
     ds = np.diff(s)
     th = cfg.th0 + np.concatenate([[0.0], np.cumsum(0.5 * (k[1:] + k[:-1]) * ds)])
     x = cfg.p0[0] + np.concatenate([[0.0], np.cumsum(0.5 * (np.cos(th[1:]) + np.cos(th[:-1])) * ds)])
@@ -106,11 +132,32 @@ def reference_points(cfg: Cfg, step: float = 0.05):
     return np.array(pts)
 
 
+def separation(cfg: Cfg, xy, s_mid, n_leg=15, min_arc=25.0):
+    """中心線(入口の直線 + スプライン(または今の中心線)+ 出口の直線)の、弧長で min_arc 以上離れた点どうしの最小間隔。
+    管の外径(12.8)以上であれば、管は自分自身と重ならない。"""
+    t = np.linspace(0, 1, n_leg)[:, None]
+    leg_in = cfg.start + (cfg.p0 - cfg.start) * t
+    leg_out = cfg.p1 + (cfg.end - cfg.p1) * t
+    pts = np.vstack([leg_in, xy, leg_out])
+    sl = np.concatenate([np.linspace(0, cfg.l_in, n_leg), cfg.l_in + s_mid, cfg.l_in + s_mid[-1] + np.linspace(0, cfg.l_out, n_leg)])
+    D = np.hypot(pts[:, None, 0] - pts[None, :, 0], pts[:, None, 1] - pts[None, :, 1])
+    m = np.abs(sl[:, None] - sl[None, :]) > min_arc
+    return float(D[m].min())
+
+
+def reference_separation(cfg: Cfg):
+    ref = reference_points(cfg, 0.2)
+    s = np.arange(len(ref)) * 0.2
+    return separation(cfg, ref[::4], s[::4])
+
+
 def solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3):
     ref = reference_points(cfg)
     tree = cKDTree(ref)
     v0 = cfg.v0
-    scale = np.array([v0[0], max(v0[1], 10.0), v0[2], v0[3], abs(v0[4]), abs(v0[5]), abs(v0[6])])
+    n = cfg.n
+    scale = np.concatenate([np.maximum(cfg.L0, 10.0), np.abs(cfg.K0[cfg.arc])])
+    sep_target = min(reference_separation(cfg), 20.0) - 0.05  # 今より管どうしを近づけない(2 本の直線のピッチ 20 も上限)
 
     def resid(v):
         s, k, th, xy = integrate(cfg, v, w)
@@ -118,12 +165,17 @@ def solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3):
         dv = (v - v0) / scale
         d1 = tree.query(xy[::8])[0] * wshape
         d2 = cKDTree(xy).query(ref[::40])[0] * wshape
-        return np.concatenate([c, dv * 3.0, d1, d2])
+        sep = separation(cfg, xy[::8], s[::8], n_leg=8)
+        return np.concatenate([c, dv * 3.0, d1, d2, [max(0.0, sep_target - sep) * 50.0]])
 
-    # 曲げは今より急にしない: κ1 ≥ 今の κ1(R ≥ R1)。ほかは今の値の付近
-    lo = np.array([0.3 * v0[0], 0.0, 0.4 * v0[2], 0.2 * v0[3], v0[4], 0.2 * v0[5], 0.2 * v0[6]])
-    hi = np.array([3.0 * v0[0], max(3.0 * v0[1], 30.0), 2.0 * v0[2], 3.0 * v0[3], 0.2 * v0[4], 4.0 * v0[5], 4.0 * v0[6]])
-    r = least_squares(resid, v0, bounds=(lo, hi), x_scale=scale, max_nfev=400, xtol=1e-12, ftol=1e-12)
+    # 長さ: 円弧は今の 0.3〜3 倍、直線は 0〜max(3 倍, 30)。曲率: 同じ符号で、今の 0.2 倍〜(全体の最小曲げ半径 = cap)
+    lo_L = np.where(cfg.arc, 0.3 * cfg.L0, 0.0)
+    hi_L = np.where(cfg.arc, 3.0 * cfg.L0, np.maximum(3.0 * cfg.L0, 30.0))
+    K0a = cfg.K0[cfg.arc]
+    lo_K = np.where(K0a > 0, 0.2 * K0a, -cfg.cap)
+    hi_K = np.where(K0a > 0, cfg.cap, 0.2 * K0a)
+    r = least_squares(resid, v0, bounds=(np.concatenate([lo_L, lo_K]), np.concatenate([hi_L, hi_K])), x_scale=scale,
+                      max_nfev=400, xtol=1e-12, ftol=1e-12)
     return r.x, ref
 
 
@@ -134,13 +186,13 @@ def analyze(cfg: Cfg, v, ref, w):
     zeros = [float(s[i]) for i in np.where(np.diff(np.sign(k[5:-5])) != 0)[0] + 5]
     flat = s[np.abs(k) < 1e-6]
     flat_mid = flat[(flat > 0.1 * s[-1]) & (flat < 0.9 * s[-1])]
-    return dict(L=length(v), end=xy[-1], end_th=math.degrees(th[-1] - cfg.th1), kmin=float(k.min()), kmax=float(k.max()),
+    return dict(L=float(s[-1]), end=xy[-1], end_th=math.degrees(th[-1] - cfg.th1), kmin=float(k.min()), kmax=float(k.max()),
                 dmax=float(max(d_new.max(), d_old.max())), dmean=float(d_new.mean()), zeros=zeros,
                 dk=float(np.abs(np.gradient(k, s)).max()), flat=(float(flat_mid[0]), float(flat_mid[-1])) if len(flat_mid) else None,
-                s=s, k=k, xy=xy)
+                sep=separation(cfg, xy[::4], s[::4]), s=s, k=k, xy=xy)
 
 
-def spline_edge(cfg: Cfg, v, w=W_DEFAULT, n_pts=300):
+def spline_edge(cfg: Cfg, v, w=W_DEFAULT, n_pts=None):
     """κ(s) を積分した曲線(N+1 点)から、B スプライン曲線(次数 3〜6、C2、許容 1e-5)の辺を作る。"""
     from build123d import Edge
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
@@ -150,6 +202,8 @@ def spline_edge(cfg: Cfg, v, w=W_DEFAULT, n_pts=300):
     from OCP.gp import gp_Pnt
 
     s, k, th, xy = integrate(cfg, v, w)
+    if n_pts is None:
+        n_pts = max(300, int(s[-1] / 0.45))  # 点の間隔 0.45 mm 以下(長い頭管でも端の接線・曲率を精度よく合わせる)
     idx = np.linspace(0, N, n_pts + 1).astype(int)
     pts = xy[idx].copy()
     pts[0], pts[-1] = cfg.p0, cfg.p1  # 直線部と厳密につなぐ
@@ -215,8 +269,9 @@ def report(name: str, w: float = W_DEFAULT, show_viewer: bool = True):
         show(old, solid, names=[f"{name}_old", f"{name}_spline"], alphas=[0.25, 1.0], colors=["gray", None], reset_camera=Camera.KEEP)
     legs = cfg.l_in + cfg.l_out
     print(f"{name} W={w}: valid={solid.is_valid} 体積={solid.volume:.2f} (期待 π(6.4²-6²)·({legs:g}+{a['L']:.3f})={math.pi * (6.4**2 - 6**2) * (legs + a['L']):.2f})")
-    print("今の値   l1..l4 =", np.round(cfg.v0[:4], 3), " κ1,κ3,κ4 =", np.round(cfg.v0[4:], 5))
-    print("新しい値 l1..l4 =", np.round(v[:4], 3), " κ1,κ3,κ4 =", np.round(v[4:], 5), " (半径 %s)" % np.round(1 / np.abs(v[4:]), 2))
+    Ln, Kn = unpack(cfg, v)
+    print("今の値   長さ =", np.round(cfg.L0, 3), " κ =", np.round(cfg.K0, 5))
+    print("新しい値 長さ =", np.round(Ln, 3), " κ =", np.round(Kn, 5), " (半径 %s)" % np.round(1 / np.where(np.abs(Kn) > 1e-9, np.abs(Kn), np.nan), 2))
     (t0, k0), (t1, k1) = curve_ends(crv)
     print("終点誤差 %.1e 向き誤差 %+.1e° / スプライン端: 始端の接線 %.4f°(入口 %.1f°)曲率 %.1e / 終端の接線 %.4f°(出口 %.1f°)曲率 %.1e" % (
         float(np.hypot(*(a["end"] - cfg.p1))), a["end_th"], t0, math.degrees(cfg.th0), k0, t1, math.degrees(cfg.th1), k1))
@@ -225,13 +280,7 @@ def report(name: str, w: float = W_DEFAULT, show_viewer: bool = True):
     bb, bo = solid.bounding_box(), old.bounding_box()
     print("今の形との距離: 最大 %.3f 平均 %.3f" % (a["dmax"], a["dmean"]))
     print("外形 新 x[%.1f,%.1f] y[%.1f,%.1f] / 旧 x[%.1f,%.1f] y[%.1f,%.1f]" % (bb.min.X, bb.max.X, bb.min.Y, bb.max.Y, bo.min.X, bo.max.X, bo.min.Y, bo.max.Y))
-    pts = np.vstack([np.array([[cfg.start[0] + (cfg.p0[0] - cfg.start[0]) * t, cfg.start[1] + (cfg.p0[1] - cfg.start[1]) * t] for t in np.linspace(0, 1, 40)]),
-                     a["xy"][::4],
-                     np.array([[cfg.p1[0] + (cfg.end[0] - cfg.p1[0]) * t, cfg.p1[1] + (cfg.end[1] - cfg.p1[1]) * t] for t in np.linspace(0, 1, 150)])])
-    sl = np.concatenate([np.linspace(0, cfg.l_in, 40), cfg.l_in + a["s"][::4], cfg.l_in + a["s"][-1] + np.linspace(0, cfg.l_out, 150)])
-    D = np.hypot(pts[:, None, 0] - pts[None, :, 0], pts[:, None, 1] - pts[None, :, 1])
-    m = np.abs(sl[:, None] - sl[None, :]) > 25.0
-    print("弧長で離れた中心線間隔の最小 %.3f(外径 12.8 以上なら管が重ならない)" % D[m].min())
+    print("弧長で離れた中心線間隔の最小: 新 %.3f / 旧 %.3f(外径 12.8 以上なら管が重ならない。2 本の直線のピッチ 20 が上限)" % (a["sep"], reference_separation(cfg)))
     return solid, cfg, v
 
 
