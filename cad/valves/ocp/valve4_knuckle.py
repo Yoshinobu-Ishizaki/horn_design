@@ -81,9 +81,9 @@ CONNECT_ANGLE = 135.0  # 1 本目の方向。折れは反時計回りに 45° �
 CONNECT_PULL = 0.0  # FreeCAD の枝管と同じ差し込み位置。2 本目の端面が x = 70 - 17.5 = 52.5 で、第 1 の枝管の端面(35 + 17.5)と突き合う
 
 
-def connect_knuckle(pull: float = CONNECT_PULL):
-    """第 4 の 2 階・135° の孔の 45° 枝管。"""
-    return Pos(X_VALVE4, 0, Z_F2) * Rot(0, 0, CONNECT_ANGLE) * Pos(pull, 0, 0) * knuckle(45.0)
+def connect_knuckle(z: float = Z_F2, pull: float = CONNECT_PULL):
+    """第 4 の左の孔(135°)の 45° 枝管。z=34(2 階)または z=17(1 階)。第 1 の枝管の端面と突き合う。"""
+    return Pos(X_VALVE4, 0, z) * Rot(0, 0, CONNECT_ANGLE) * Pos(pull, 0, 0) * knuckle(45.0)
 
 
 def main():
@@ -102,8 +102,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), connect_knuckle()]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg"]
+    parts += [twisted_knuckle(th, ps), connect_knuckle(Z_F2), connect_knuckle(Z_F1)]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 

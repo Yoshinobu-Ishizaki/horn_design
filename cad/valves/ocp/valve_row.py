@@ -11,6 +11,7 @@
 from build123d import Pos, Rot
 
 from valve_assy import build
+from knuckle import S_START, straight_tube
 from valve_case import valve_case
 from valve_units import PITCH
 
@@ -20,9 +21,9 @@ VALVES = {"valve2": 0.0, "valve1": +PITCH, "valve3": -PITCH, "valve4": VALVE4_X}
 NO_KNUCKLE = {"valve4"}  # 枝管を付けない植込(暫定)
 
 # 第 4 植込の孔(ワールドの角度 [deg]、+x から反時計回り)。各階 3 個。
-#   1 階(F 階、z 小 = z=17): 第 1 側(-x)の (-x,+y) の孔(135°)をやめる → 45°, 225°, 315°
+#   1 階(F 階、z 小 = z=17): 右側の (+x,+y) の孔(45°)をやめて、左側の (-x,+y)(135°)に明ける → 135°, 225°, 315°
 #   2 階(B 階、z 大 = z=34): (+x,+y) の孔(45°)をやめる → 135°, 225°, 315°
-VALVE4_HOLES_WORLD = {"F1": [45.0, 225.0, 315.0], "F2": [135.0, 225.0, 315.0]}
+VALVE4_HOLES_WORLD = {"F1": [135.0, 225.0, 315.0], "F2": [135.0, 225.0, 315.0]}
 
 
 def valve4_case():
@@ -42,10 +43,30 @@ def place_unit(x0: float, knuckles: bool = True):
     return T * case, [T * k for k in ks], names
 
 
+# 1 階(z=17)の第 3 の左(-x)側の枝管は、まっすぐな管に変更する(第 1 の右側は 45° 枝管に戻した)。
+# 管の軸は孔の軸、始端は枝管と同じ軸から 7、終端は植込み中心から軸方向に 17.5(長さ 10.5)。
+STRAIGHT_TUBE_END = 17.5
+#   植込 → (置き換える枝管の名前、孔軸の角度[deg]、管の名前)
+STRAIGHT_TUBES = {
+    # 第 1 の 1 階右側(knuckle_L2_135)は、第 4 の 1 階の左の孔の 45° 枝管と連結するので、45° 枝管に戻した
+    "valve3": ("knuckle_L2_45", 135.0, "tube_F1_135"),  # 左側: 端面 -X(x=-52.5、y=+10)
+}
+
+
+def _straight_tube_at(x0: float, angle: float):
+    return Pos(x0, 0, 17.0) * Rot(0, 0, angle) * straight_tube(S_START, STRAIGHT_TUBE_END)
+
+
 def build_row():
     out = {}
     for vname, x0 in VALVES.items():
         case, ks, names = place_unit(x0, vname not in NO_KNUCKLE)
+        if vname in STRAIGHT_TUBES:
+            old, angle, new = STRAIGHT_TUBES[vname]
+            i = names.index(old)
+            ks, names = list(ks), list(names)
+            ks[i] = _straight_tube_at(x0, angle)
+            names[i] = new
         out[vname] = (case, ks, [f"{vname}_{n}" for n in names])
     return out
 

@@ -47,6 +47,16 @@ def knuckle(bend: float = 45.0, d1: float = D1, l2: float = L2, s_start: float =
     return outer - inner
 
 
+def straight_tube(s_start: float = S_START, s_end: float = 17.5, od: float = OD, id_: float = ID):
+    """まっすぐな管(外径 12.8 / 内径 12.0)。局所の +X 軸上で、軸(原点)から s_start 〜 s_end。端面は軸に垂直。
+    枝管(knuckle)と同じ座標で置けるので、枝管の代わりに差し替えられる。"""
+    length = s_end - s_start
+    pl = Plane(origin=(s_start, 0, 0), z_dir=(1, 0, 0))
+    outer = pl * Cylinder(od / 2, length, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    inner = pl * Pos(0, 0, -EPS) * Cylinder(id_ / 2, length + 2 * EPS, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    return outer - inner
+
+
 def place_like_freecad_body001(k, z: float = 13.0):
     """FreeCAD の Body001 と同じ位置(1 本目が 225° 方向、z=13)に置く。"""
     return Pos(0, 0, z) * Rot(0, 0, 225) * k
