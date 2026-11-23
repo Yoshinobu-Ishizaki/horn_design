@@ -1,10 +1,11 @@
-"""Bb の第 3 → 第 4 の回路: 第 3 植込の 2 階・左上(135°)の枝管(valve3_knuckle_L1_45、出口 -X)に、ピッチ 40 の U 字をつなぐ。
+"""Bb の第 3 → 第 4 の回路: 第 3 植込の 2 階・左上(135°)の枝管(valve3_knuckle_L1_45、出口 -X)に、U 字をつなぐ。
 
-- U 字の曲がりは基本の U 字管(cad/bows/ocp/ubows.py、直管 LEG = 5)と同じ。内径は ⌀12.0 一定、板厚はベルと同じ。
-- 出口の軸(-X)まわりに U を回して、もう一方の直線の軸が、水平面 z = 34 + RISE(= 49)に乗るようにする
-  (ユーザー指示。傾き 15° ではなく、高さ 15)。ピッチ 40 なので n の z 成分 = RISE / ピッチ(回転角 asin(15/40) = 22.02°)。
-  向きは -Y 側(n = (0, -cos, +sin))。逆側は --side plus(+Y 側)。
+- U 字の曲がりは基本の U 字管(cad/bows/ocp/ubows.py、直管 LEG = 5)と同じ。ピッチは下の条件で決まる。内径は ⌀12.0 一定、板厚はベルと同じ。
+- 出口の軸(-X)まわりに U を回して、もう一方の直線の軸が、水平面 z = 34 + RISE(= 49)に乗るようにする(ユーザー指示)。
 - 管体組立(cad/bellscrew/ocp/assy_with_valves.py)の hook で足す。座標は管体組立のワールド。
+- もう一方の直線の軸は、水平面 z = 34 + RISE(= 49)の上で、第 4 の 2 階左下(225°、ねじった枝管 valve4_knuckle_F2_225_twisted)の
+  出口の軸を伸ばして z = 49 と交わる点(X, -37.553, 49)を通る(ユーザー指示)。ピッチ = hypot(Δy, RISE) ≒ 49.86、
+  回転角 = asin(RISE / ピッチ)。向きは -Y 側(n = (0, -cos, +sin))。`--pitch 40` のように指定すると、その値で置く(交点は無視)。
 
     python3 cad/valves/ocp/warm.py run cad/bb34/ocp/bb34_u.py [--pitch 40] [--rise 15] [--side plus]
 """
@@ -22,7 +23,7 @@ ROOT = HERE.parents[2]
 sys.path[:0] = [str(HERE), str(ROOT / "cad/branch2/ocp"), str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valves/ocp"),
                 str(ROOT / "cad/bows/ocp"), str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
-PITCH = 40.0
+PITCH = None  # None なら、第 4 の枝管の出口の軸の延長の交点を通るように決める
 RISE = 15.0  # もう一方の直線の軸の高さ: 2 階の軸平面(z = 34)から +15
 D = 12.0
 KNUCKLE = "valve3_knuckle_L1_45"  # 第 3 の 2 階・左上(ワールド 135°)
@@ -39,6 +40,18 @@ def exit_of_knuckle(name=KNUCKLE):
     f = max(ends, key=lambda f: abs(f.center().X - (-35.0)))  # 植込み中心 x = -35 から遠い方
     c, n = f.center(), f.normal_at()
     return np.array([c.X, c.Y, c.Z]), np.array([n.X, n.Y, n.Z])
+
+
+def target_point(z_plane):
+    """第 4 の 2 階左下(225°)のねじった枝管の出口の軸を伸ばして、水平面 z = z_plane と交わる点。"""
+    import valve4_knuckle as V
+
+    k = V.twisted_knuckle_2f()
+    a_ring = math.pi / 4 * (12.8**2 - 12.0**2)
+    f = max((f for f in k.faces() if f.geom_type.name == "PLANE" and abs(f.area - a_ring) < 0.5), key=lambda f: -f.normal_at().Y)
+    c, n = f.center(), f.normal_at()  # 出口の端面は、外向きが -Y 側(+Z 寄り)
+    P, u = np.array([c.X, c.Y, c.Z]), np.array([n.X, n.Y, n.Z])
+    return P + (z_plane - P[2]) / u[2] * u
 
 
 def placement(pitch=PITCH, rise=RISE, side=-1):
@@ -63,7 +76,10 @@ def main() -> None:
     import branch2_u as U
 
     arg = lambda k, d: float(sys.argv[sys.argv.index(k) + 1]) if k in sys.argv else d  # noqa: E731
-    pitch, rise = arg("--pitch", PITCH), arg("--rise", RISE)
+    rise = arg("--rise", RISE)
+    P0 = exit_of_knuckle()[0]
+    Q = target_point(P0[2] + rise)
+    pitch = arg("--pitch", math.hypot(Q[1] - P0[1], rise))
     side = +1 if "--side" in sys.argv and sys.argv[sys.argv.index("--side") + 1] == "plus" else -1
 
     def hook(M, branch, others):
@@ -72,6 +88,7 @@ def main() -> None:
         ww = BP.apply(w, T)
         q1, t1 = ww.position_at(1.0), ww.tangent_at(1.0)
         q1 = np.array([q1.X, q1.Y, q1.Z])
+        print(f"target point (valve4 F2-225 exit axis extended to z={P0[2] + rise:g}): {Q.round(3).tolist()}")
         print(f"exit {KNUCKLE}: {pl['P0'].round(3).tolist()}, axis {pl['a'].round(4).tolist()}")
         print(f"U pitch {pitch:g}: curve {info['curve_len']:.3f} + legs 2 x 5, total {w.length:.3f}; min bend R {info['rmin']:.2f}, "
               f"height {info['h']:.2f}")
@@ -79,7 +96,7 @@ def main() -> None:
         off = q1 - pl["P0"]
         perp = off - (off @ pl["a"]) * pl["a"]
         print(f"other leg end {q1.round(3).tolist()}, direction {np.round([t1.X, t1.Y, t1.Z], 4).tolist()}; "
-              f"axis offset {np.linalg.norm(perp):.3f}, z {q1[2]:.3f} (target {pl['P0'][2] + rise:.3f})")
+              f"axis offset {np.linalg.norm(perp):.3f}, y {q1[1]:.3f}, z {q1[2]:.3f} (target y {Q[1]:.3f}, z {pl['P0'][2] + rise:.3f})")
         tube = BP.apply(U.const_d_tube(w, D, BP.WALL), T)
         print(f"U tube D {D:g} valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
         import branch2_l as B2
