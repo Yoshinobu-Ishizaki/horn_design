@@ -1,11 +1,10 @@
 """ベルスクリュー(詳細): bellscrew_ring.py の円環を、平面 y = Y_SPLIT でオス・メスに分けてねじにする。
 
 - 座標は bell03 の設計の座標(回す前。リム中心 (0,0)、直管部は +Y)。ベルの軸は Y 軸。
-- 円環は y = Y_SPLIT ± HALF。外側は bellscrew_ring.py と同じ考え方の円弧(半径 ARC_R)。
-  端の直径は D_BOT(y = Y_SPLIT - HALF)・D_TOP(y = Y_SPLIT + HALF)。
-- オス(下側、リム側): y = Y_SPLIT - HALF .. Y_SPLIT。分割面のすぐ下 THREAD_LEN がおねじ(M80×1)、
-  その下(HALF - THREAD_LEN = 2 mm)が外側の円弧のツバ。
-- メス(上側): y = Y_SPLIT - THREAD_LEN .. Y_SPLIT + HALF。分割面より下の THREAD_LEN はおねじにかぶさる
+- 円環は y = Y_SPLIT - THREAD_LEN - FLANGE .. Y_SPLIT + ABOVE(分割面と一緒に動く)。
+  外側は bellscrew_ring.py と同じ考え方の円弧(半径 ARC_R)。端の直径は D_BOT(下端)・D_TOP(上端)。
+- オス(下側、リム側): 分割面のすぐ下 THREAD_LEN がおねじ(M80×1)、その下の FLANGE が外側の円弧のツバ。
+- メス(上側): y = Y_SPLIT - THREAD_LEN .. Y_SPLIT + ABOVE。分割面より下の THREAD_LEN はおねじにかぶさる
   めねじ、分割面より上はベルの外面に沿う。外から見える合わせ目は y = Y_SPLIT - THREAD_LEN。
 - 内側はどちらもベルの外面(板厚 WALL)で切り取る。ベルのモデルは切らない。
 - ねじは ISO の基準山形(60°、山頂の平らは P/8、谷は P/4 の平ら)を螺旋に沿って掃引した形。
@@ -27,16 +26,17 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "cad/bell03/ocp"))
 sys.path.insert(0, str(ROOT / "cad/bell03/tools"))
 
-Y_SPLIT = 132.0  # 分割面。おねじは y = Y_SPLIT - THREAD_LEN .. Y_SPLIT。ねじ部の下端でおねじの谷の下に約 1 mm
-# (分割面 131 で 0.78 mm、127 以下ではベルの外径がおねじの谷の径より太い)
-HALF = 6.0  # 円環は y = Y_SPLIT ± HALF
+Y_SPLIT = 131.0  # 分割面。おねじは y = Y_SPLIT - THREAD_LEN .. Y_SPLIT。ねじ部の下端でおねじの谷の下が
+# 0.78 mm(132 で 1.02 mm、127 以下ではベルの外径がおねじの谷の径より太い)。132 から 1 mm 下げた
+FLANGE = 2.0  # オスのツバの厚さ(軸方向)
+ABOVE = 6.0  # 分割面から円環の上端まで
 THREAD_D = 80.0  # M80
 PITCH = 1.0  # P1
 THREAD_LEN = 4.0  # ねじ部の長さ
 CLEAR = 0.05  # おねじを半径で小さくする量(めねじとのすき間)
-D_BOT = 80.0  # 下端(y 126)の外径。最初は 82(めねじの肉厚 1 mm から)で、厚すぎたので -2
-D_TOP = 74.0  # 上端(y 138)の外径。最初は 82 で、厚すぎたので -8
-ARC_R = 11.0  # 外側の断面の円弧の半径
+D_BOT = 80.0  # 下端の外径。最初は 82(めねじの肉厚 1 mm から)で、厚すぎたので -2
+D_TOP = 74.0  # 上端の外径。最初は 82 で、厚すぎたので -8
+ARC_R = 8.0  # 外側の断面の円弧の半径(R11 ではめねじの外の肉厚が 0.3〜0.6 mm と薄かった)
 WALL = 0.4  # ベルの板厚(外向き)
 
 H = math.sqrt(3) / 2 * PITCH  # 基準山形のとがり山の高さ
@@ -96,7 +96,7 @@ def build():
     bore, _ = variable_pipe_law(cl, L, D, solid=True)
     bell = wall + bore  # ベルの外面の内側すべて
 
-    y0, yt, ys, y1 = Y_SPLIT - HALF, Y_SPLIT - THREAD_LEN, Y_SPLIT, Y_SPLIT + HALF  # yt..ys がねじ部
+    y0, yt, ys, y1 = Y_SPLIT - THREAD_LEN - FLANGE, Y_SPLIT - THREAD_LEN, Y_SPLIT, Y_SPLIT + ABOVE  # yt..ys がねじ部
     d_bot, d_top = D_BOT, D_TOP
     for y, d in ((y0, d_bot), (y1, d_top)):
         print(f"end y {y:g}: outer D {d:.3f}, bell outer D {outer_diameter(wall, y):.3f}")
