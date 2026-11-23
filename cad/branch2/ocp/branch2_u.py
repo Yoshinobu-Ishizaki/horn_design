@@ -25,7 +25,7 @@ sys.path[:0] = [str(HERE), str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valv
 PITCH = 50.0  # 50 → 40 → 60 → 50(ユーザー指示)
 
 
-U_RMIN = 21.6  # 2番管の U 字の最小曲げ半径(標準 22.5 → 21.6 に角ばらせた。抜差の 2 本目の中管 Bb_return_inner_tube_2 との表面距離 0.292 → 0.8)
+U_RMIN = None  # 2番管のピッチ 50 の形(最小 R 21.6)が U 字管の基本(ubows.RMIN_40 = 17.28)。個別に変えるときだけ値を入れる
 
 
 def valve4_exit():
