@@ -101,6 +101,19 @@ def main() -> None:
         perp = off - (off @ pl["t"]) * pl["t"]
         print(f"other leg axis vs branch1 cross straight: offset in the bell plane {np.linalg.norm(perp):.3f} "
               f"({perp.round(3).tolist()}), along {float(off @ pl['t']):+.3f}")
+        # 長さ: リム → 1番管(U の直線の端まで)→ U → 第 4 の出口。1番管の末端は今 L = X_END(⌀12)
+        import bell03_surface as BS
+        from make_centerline import build_branch_wire
+        from make_mensur import X_END
+
+        l_bell = BS.centerline().length
+        l_b1 = build_branch_wire().length
+        along = float(off @ pl["t"])  # 1番管の末端から U の直線の端まで(負なら手前)
+        l_b1_to_u = l_b1 + along
+        total = l_bell + l_b1_to_u + w.length
+        print(f"branch1 end -> U leg end along the straight: {along:+.3f} (branch1 up to the joint {l_b1_to_u:.3f})")
+        print(f"rim -> valve 4 exit: bell {l_bell:.3f} + branch1 {l_b1_to_u:.3f} + U {w.length:.3f} = {total:.3f} "
+              f"(D 12 at L {X_END:g}: {total - X_END:+.3f})")
         return branch, [ww], ["branch2_U_centerline"], ["#ff2020"]
 
     AW.main(hook=hook)
