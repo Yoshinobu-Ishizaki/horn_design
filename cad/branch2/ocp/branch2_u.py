@@ -3,7 +3,7 @@ U 字の片方の直線をつなぐ。曲がりは基本の U 字管(cad/bows/oc
 
 - 第 4 の枝管側の直線の軸(出口の軸、+X)まわりに U を回して、もう一方の直線の軸が、ベル・1番管の芯線の平面
   (設計の z = 0 の平面を組立の変換 M で動かした平面)に乗るようにする。解は 2 つあるので、1番管の横の直線に近い側。
-- 内径は、後でメンズールをマップしてテーパーにする(今は芯線だけ)。
+- 内径は ⌀12.0 一定(メンズールはマップしない。音程は全体の完成後に確認)。
 - 座標は管体組立のワールド。
 
     uv run python cad/branch2/ocp/branch2_u.py
@@ -114,24 +114,24 @@ def main() -> None:
         print(f"branch1 end -> U leg end along the straight: {along:+.3f} (branch1 up to the joint {l_b1_to_u:.3f})")
         print(f"rim -> valve 4 exit: bell {l_bell:.3f} + branch1 {l_b1_to_u:.3f} + U {w.length:.3f} = {total:.3f} "
               f"(D 12 at L {X_END:g}: {total - X_END:+.3f})")
-        # 2番管の管: 内径はメンズール(L = total - 出口からの長さ。X_END を超えた所は ⌀12)、板厚 BP.WALL。
+        # 2番管の管: 内径は ⌀12.0 一定(ユーザー指示。音程への影響は小さい見込み。全体が完成したら音程を確認する)、板厚 BP.WALL。
         # 直線とスプラインを別に掃引してつなぐ(スプラインはフレネ)。出口(s = 0)から、1番管との接続点へ。
         from build123d import Wire
 
         from bope_claude_cad.vss import variable_pipe_wall
-        from make_mensur import diameter
-
-        tube, s_at, dd_ends = None, 0.0, []
+        walls, s_at = [], 0.0
+        D2 = 12.0
         for e in w.edges():
             ss = np.linspace(0, e.length, 101)
-            dd = diameter(np.minimum(total - (s_at + ss), X_END))
+            dd = np.full_like(ss, D2)
             kw = {} if e.geom_type.name == "LINE" else {"binormal": "frenet"}
             wall, _ = variable_pipe_wall(Wire([e]), ss, dd, BP.WALL, method="sweep", **kw)
-            tube = wall if tube is None else tube + wall
+            walls.append(wall)  # 合体(+)は曲がり部が落ちるので、コンパウンドにする
             s_at += e.length
-            dd_ends += [float(dd[0]), float(dd[-1])]
-        tube = BP.apply(tube, T)
-        print(f"branch2 tube: D {dd_ends[0]:.3f} (exit) -> {dd_ends[-1]:.3f} (joint, branch1 end D is the same), valid {tube.is_valid}")
+        from build123d import Compound
+
+        tube = BP.apply(Compound(walls), T)
+        print(f"branch2 tube: D {D2:g} constant (branch1 end D at the joint is 12.246), valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
         import branch2_l as B2
 
         B2.report_clearance(tube, others)
