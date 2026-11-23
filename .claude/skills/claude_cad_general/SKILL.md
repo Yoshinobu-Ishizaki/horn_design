@@ -12,7 +12,7 @@ description: 部品・治具・型などの3Dモデルを、OCP CAD Viewer を�
 - **スキルの置き場所**: `~/.claude/skills/` ではなく、このリポジトリの `.claude/skills/`(プロジェクトのスキル)。原本もここ。個別スキルから共通の道具は `../claude_cad_general/...` で参照する(本文どおり)。
 - **実行環境**: スキル専用の共有 `.venv` は使わない。build123d・ocp-vscode・ezdxf・numpy・scipy はリポジトリの `.venv`(`pyproject.toml` / `uv.lock`)に入れてあり、`src/bope_claude_cad` もパッケージとして入っている。実行は `PYTHONDONTWRITEBYTECODE=1 PYTHONIOENCODING=utf-8 uv run python ...`、テストは `uv run pytest`。`uv run --frozen --project .claude/skills/claude_cad_general` は使わない。依存を足すときは、ユーザーに断ってから `uv add`。
 - **OCP CAD Viewer が使う Python**: 拡張に `scripts/ocp_python.py` のパッチを当て、`.vscode/settings.json` の `OcpCadViewer.advanced.pythonPath` で、このリポジトリの `.venv/bin/python` を指定している(`python.defaultInterpreterPath` も同じ)。
-- **拡張へのパッチ(2026-11-22 に 4.3.0 へ当てた)**: `ocp_python.py`・`ocp_hover_name.py`・`ocp_mouse.py`(既定の geomagic)。拡張を更新するとパッチが消えるので、`uv run --no-project python -I .claude/skills/claude_cad_general/scripts/<名前>.py apply` を3つとも当て直し、VS Code を Reload Window する。状態は `status` で見る。
+- **拡張へのパッチ(2026-11-22 に 4.3.0 へ当てた)**: `ocp_python.py`・`ocp_hover_name.py`・`ocp_mouse.py`(既定の geomagic)・`ocp_view_keys.py`(7 キー = top view。2026-11-24)。拡張を更新するとパッチが消えるので、`uv run --no-project python -I .claude/skills/claude_cad_general/scripts/<名前>.py apply` を4つとも当て直し、VS Code を Reload Window する。状態は `status` で見る。
 - **ocp-vscode の版**: `.venv` には `ocp-vscode 4.3.x` が入っている。VS Code の OCP CAD Viewer 拡張も 4.3 系にそろえる(ずれたら `pyproject.toml` の範囲を拡張の系列に合わせて `uv lock`・`uv sync`)。
 - **OS**: Linux。Windows 向けの文字化け対策(10)は、日本語を Write / Edit で書く・コミットメッセージを `git commit -F` で渡す、の部分だけ守ればよい。注記のフォント Segoe UI Symbol はこの PC に無いので、記号が出ないときは別のフォント(DejaVu Sans など)を使う。
 - **作業場所**: `wd` = `cad/<名前>/`(例: `cad/bell_01/`。`cad/` には FreeCAD のファイルもある)。ビューアに出すモデルのコードは `wd/ocp/`。生成物は `output/`(git 管理外)。名前は最初にユーザーに確認する。
@@ -76,6 +76,7 @@ description: 部品・治具・型などの3Dモデルを、OCP CAD Viewer を�
 |------|------|
 | 計測用バックエンドの起動(動いていれば何もしない) | `scripts/start_ocp_backend.py` |
 | ビューアーのホバーに部品名を出す(拡張へのパッチ。当てる・戻す・状態) | `scripts/ocp_hover_name.py`(`apply` / `revert` / `status`) |
+| ビューアーの数字キーの視点(7 = top view: X が左・+Y が上。当てる・戻す・状態) | `scripts/ocp_view_keys.py`(`apply` / `revert` / `status`) |
 | ビューアーのマウスの割り当て(回転・パン・ズーム。Geomagic・RoboDK・Creo・SolidWorks の方式、ホイールの向き、ズームの中心) | `scripts/ocp_mouse.py`(`set` / `apply` / `revert` / `status` / `presets`) |
 | STEP の面・エッジの一覧(円筒・円錐のパラメータ、エッジと平面の交点) | `scripts/probe_step.py` |
 | 名称付けした面・エッジ・軸・点を重ねた PNG(iso/front/side/top) | `scripts/render_names.py` |
@@ -113,7 +114,7 @@ build123d・ocp_vscode などは、このスキルのフォルダ(`.claude/skill
 2. 原本 `bope_claude_cad/skills/claude_cad_general/pyproject.toml` の `ocp-vscode` の範囲を、拡張と同じ系列にする(例: 4.3.0 なら `>=4.3.0,<4.4`)。コメントの拡張の版、この SKILL.md の「4.2.0」の記述も直す。
 3. `uv lock --project skills/claude_cad_general` で `uv.lock` を更新し、`pyproject.toml`・`uv.lock`・`SKILL.md` を `.claude/skills/claude_cad_general/` へ写して、`uv sync --frozen --project .claude/skills/claude_cad_general` を実行する。
 4. `bope_claude_cad` 本体の `pyproject.toml` の `ocp-vscode` も同じ系列にそろえ、`uv lock`・`uv sync` する(本体の `.venv` も同じ拡張につなぐため)。
-5. 拡張へのパッチを当て直す: `ocp_python.py apply`、`ocp_hover_name.py apply`、`ocp_mouse.py apply`(更新でパッチが消えるため。下の各節)。
+5. 拡張へのパッチを当て直す: `ocp_python.py apply`、`ocp_hover_name.py apply`、`ocp_mouse.py apply`、`ocp_view_keys.py apply`(更新でパッチが消えるため。下の各節)。
 6. `uv run pytest tests/test_skill_consistency.py` で、拡張と `uv.lock` の版、原本とインストール先がそろったことを確かめ、コミットする。
 - **依存を足す・版を上げる**: 原本(`bope_claude_cad` の `skills/claude_cad_general/pyproject.toml`)を直し、`uv lock --project skills/claude_cad_general` で `uv.lock` を更新して、`pyproject.toml` と `uv.lock` を `.claude/skills/claude_cad_general/` へ写し、`uv sync --frozen --project .claude/skills/claude_cad_general` を実行する。ずれは `tests/test_skill_consistency.py` が検出する。
 - 個別スキル(`claude_cad_vss` など)のスクリプトも、この環境で動かす。

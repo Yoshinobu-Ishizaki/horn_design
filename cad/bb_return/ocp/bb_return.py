@@ -49,6 +49,28 @@ ARC_R = 30.0  # 円弧の半径(2 直線をつなぐ 1 つの円弧)。大きい
 GAP2 = 1.0  # 2 本目の中管の先から始点までの距離
 
 
+def arc_path(p_start, t_start, p_end, t_end, straight):
+    """2 直線(始点の直線と、終点の出口を通る直線)を 1 つの真の円弧でつないだ平面内の芯線。半径 R は、始点側の直線部が straight になるように決まる
+    (接線の長さ tl = R·tan(θ/2) = |Q - 始点| - straight)。終点側の直線部は、その残り(straight 以上になるよう、短い方に合わせる)。戻り値: (Wire, info)。"""
+    from build123d import Edge, Vector, Wire
+
+    t1, t2 = np.asarray(t_start, float), np.asarray(t_end, float)
+    A = np.column_stack([t1[:2], t2[:2]])
+    s, u = np.linalg.solve(A, (np.asarray(p_end, float) - np.asarray(p_start, float))[:2])  # 角 Q までの長さ(始点側 s、終点側 u)
+    Q = np.asarray(p_start, float) + s * t1
+    theta = math.acos(float(np.clip(t1 @ t2, -1, 1)))  # 曲がり角
+    tl = min(s, u) - straight  # 接線の長さ(両側で同じ)。短い方の直線が straight になる
+    r = tl / math.tan(theta / 2)
+    a, b = Q - tl * t1, Q + tl * t2
+    n = np.cross([0, 0, 1.0], t1) * np.sign(np.cross(t1, t2)[2])
+    o = a + r * n
+    mid = o + r * (Q - o) / np.linalg.norm(Q - o)
+    arc = Edge.make_three_point_arc(Vector(*a), Vector(*mid), Vector(*b))
+    p_start, p_end = np.asarray(p_start, float), np.asarray(p_end, float)
+    w = Wire([Edge.make_line(Vector(*p_start), Vector(*a)), arc, Edge.make_line(Vector(*b), Vector(*p_end))])
+    return w, dict(Q=Q, r=r, theta=math.degrees(theta), s1=s - tl, s2=u - tl, arc_len=r * theta, C=np.array([a + (b - a) * k for k in np.linspace(0, 1, 2)]), o=o)
+
+
 def spline_path(p_start, t_start, p_end, t_end, straight, k0, k1):
     """両端に straight mm の直線 + その間を 3 次ベジェ(接線の大きさ k0, k1)でつないだ、平面内の芯線。戻り値: (Wire, 制御点)。"""
     from build123d import Edge, Vector, Wire
@@ -105,29 +127,37 @@ def hook(M, branch, others):
             pts += tess_world(sh_, 0.2)
     tree = cKDTree(np.array(pts)) if pts else None
     print(f"obstacle vertices near the path: {len(pts)}")
-    def best_for(st):
-        Lab = np.linalg.norm((P_e - st * t_e) - (p_start + st * t_s))
-        best = None
-        for f0 in np.linspace(0.2, 2.0, 37):
-            for f1 in np.linspace(0.2, 2.0, 37):
-                _, Pc = spline_path(p_start, t_s, P_e, t_e, st, f0 * Lab, f1 * Lab)
-                C, rmin_, ln = bezier_stats(Pc)
-                gap = (tree.query(C)[0].min() - D / 2 - 0.4) if tree is not None else 99.0
-                if rmin_ >= rmin_req and gap >= gap_req and (best is None or ln < best[0]):
-                    best = (ln, f0 * Lab, f1 * Lab, rmin_, gap)
-        return best
+    if "--spline" not in sys.argv:  # 既定: 真の円弧(直線 + 円弧 + 直線)
+        w, info = arc_path(p_start, t_s, P_e, t_e, straight)
+        th = np.linspace(0, 1, 200)
+        # 円弧の上の点で、軸と障害物の距離(隙間)を測る
+        Cpts = np.array([[q.X, q.Y, q.Z] for q in (w.position_at(float(t)) for t in th)])
+        gap = (tree.query(Cpts)[0].min() - D / 2 - 0.4) if tree is not None else 99.0
+        print(f"arc: straight {info['s1']:.2f} + arc R {info['r']:.3f} ({info['theta']:.1f} deg, length {info['arc_len']:.2f}) + straight {info['s2']:.2f}; corner Q {info['Q'].round(3).tolist()}; axis-based gap {gap:.3f}")
+    else:
+        def best_for(st):
+            Lab = np.linalg.norm((P_e - st * t_e) - (p_start + st * t_s))
+            best = None
+            for f0 in np.linspace(0.2, 2.0, 37):
+                for f1 in np.linspace(0.2, 2.0, 37):
+                    _, Pc = spline_path(p_start, t_s, P_e, t_e, st, f0 * Lab, f1 * Lab)
+                    C, rmin_, ln = bezier_stats(Pc)
+                    gap = (tree.query(C)[0].min() - D / 2 - 0.4) if tree is not None else 99.0
+                    if rmin_ >= rmin_req and gap >= gap_req and (best is None or ln < best[0]):
+                        best = (ln, f0 * Lab, f1 * Lab, rmin_, gap)
+            return best
 
-    print("両端の直線部 → 芯線の長さ(直線 2 本を含む)・ベジェの最小 R・隙間:")
-    for st in (5, 10, 15, 20, 25, 30, 35):
-        bs = best_for(st)
-        print(f"  straight {st:2d}: " + (f"length {bs[0] + 2 * st:.2f}, min R {bs[3]:.2f}, gap {bs[4]:.3f}" if bs else "no solution"))
-    best = best_for(straight)
-    if best is None:
-        raise RuntimeError("条件(最小 R・隙間)を満たす解がない")
-    ln, k0, k1, rmin_, gap = best
-    w, Pc = spline_path(p_start, t_s, P_e, t_e, straight, k0, k1)
-    print(f"spline: straight {straight:g} + cubic Bezier + straight {straight:g}; tangent scales {k0:.2f}, {k1:.2f}; min bend R {rmin_:.2f} (required {rmin_req:g}); "
-          f"axis-based gap {gap:.3f}; Bezier length {ln:.3f}")
+        print("両端の直線部 → 芯線の長さ(直線 2 本を含む)・ベジェの最小 R・隙間:")
+        for st in (5, 10, 15, 20, 25, 30, 35):
+            bs = best_for(st)
+            print(f"  straight {st:2d}: " + (f"length {bs[0] + 2 * st:.2f}, min R {bs[3]:.2f}, gap {bs[4]:.3f}" if bs else "no solution"))
+        best = best_for(straight)
+        if best is None:
+            raise RuntimeError("条件(最小 R・隙間)を満たす解がない")
+        ln, k0, k1, rmin_, gap = best
+        w, Pc = spline_path(p_start, t_s, P_e, t_e, straight, k0, k1)
+        print(f"spline: straight {straight:g} + cubic Bezier + straight {straight:g}; tangent scales {k0:.2f}, {k1:.2f}; min bend R {rmin_:.2f} (required {rmin_req:g}); "
+              f"axis-based gap {gap:.3f}; Bezier length {ln:.3f}")
     print(f"axis length {w.length:.3f}")
     tube = U.const_d_tube(w, D, BP.WALL)
     print(f"tube D {D:g} wall {BP.WALL:g}: valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
