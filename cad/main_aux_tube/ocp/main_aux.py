@@ -174,24 +174,6 @@ def aux_hook(M, branch, others):
     E, u = f1_225_exit()
     print(f"S (on P2, y {ys_:g}, x extended to {S[0]:g}) = {S.round(3).tolist()}, direction (1, 0, 0)")
     print(f"E (valve4 F1-225 exit) = {E.round(3).tolist()}, outward axis {u.round(4).tolist()}")
-    from scipy.spatial import cKDTree
-
-    allo = others + [("bell03_branch1_wall", branch)]
-    pts, lab = [], []
-    for n, sh in allo:
-        if n == "valve4_knuckle_F1_225_twisted" or not hasattr(sh, "tessellate") or n.endswith("centerline"):
-            continue
-        v = tess_world(sh, 0.15)
-        pts += v
-        lab += [n] * len(v)
-    tree = cKDTree(np.array(pts))
-    tt = np.linspace(0, 1, 160)[:, None]
-
-    def gap_of(B):
-        C = (1 - tt) ** 3 * B[0] + 3 * (1 - tt) ** 2 * tt * B[1] + 3 * (1 - tt) * tt**2 * B[2] + tt**3 * B[3]
-        d, i_ = tree.query(C[4:])  # 始点のごく近く(つなぐ枝管)は除く
-        return d.min() - D / 2 - 0.4, lab[int(i_[int(np.argmin(d))])]
-
     # 直線部(E → E2 = E + STRAIGHT·u)+ 5 次ベジェ(制御点 6 つ): E2, E2 + a·u, P2, P3, S − b·(1,0,0), S。a, b, P2, P3(計 8 変数)を、差分進化で決める。
     # 条件: 軸と他の部品の頂点の距離から出した隙間 ≥ GAP_REQ、最小曲げ半径 ≥ R_MIN。そのうえで長さを短く。
     from scipy.optimize import differential_evolution
@@ -209,40 +191,60 @@ def aux_hook(M, branch, others):
         P3 = np.array([x[5], S[1] + x[6] * math.sin(th), S[2] - x[6] * math.cos(th)])  # 投影で S から (sinθ, -cosθ) の向きの線の上
         return np.array([E2, E2 + x[0] * u, x[2:5], P3, S - x[1] * tS, S])
 
-    def evaluate(x):
-        Pc = ctrl(x)
-        C = Bm @ Pc
-        d1 = np.gradient(C, axis=0)
-        d2 = np.gradient(d1, axis=0)
-        kap = np.linalg.norm(np.cross(d1, d2), axis=1) / np.maximum(np.linalg.norm(d1, axis=1), 1e-9) ** 3
-        kap = kap[2:-2]
-        d, i_ = tree.query(C[6:])
-        # +Z から見た(XY)形: ゆるい U 字(y は減るだけ、x は増えるだけ、曲がりは一方向 = 反時計回りだけ)にするための違反量
-        sk = (d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-9) ** 3
-        viol = float(np.maximum(d1[1:-1, 1], 0).sum() + np.maximum(-d1[1:-1, 0], 0).sum() + 20 * np.maximum(-sk[3:-3], 0).sum())
-        return d.min() - D / 2 - 0.4, 1 / max(kap.max(), 1e-9), float(np.linalg.norm(np.diff(C, axis=0), axis=1).sum()), lab[int(i_[int(np.argmin(d))])]
+    def solve():
+        """差分進化(遅い: 全部品の三角形分割 + 探索で 1〜2 分)。結果は shape_cache に覚えて、条件とソースが同じなら計算しない。"""
+        from scipy.spatial import cKDTree
 
-    def xy_viol(x):
-        """+Z から見た(XY)形をゆるい U 字にするための違反量: y は減るだけ、x は増えるだけ、曲がりは反時計回りだけ。"""
-        C = Bm @ ctrl(x)
-        d1 = np.gradient(C, axis=0)
-        d2 = np.gradient(d1, axis=0)
-        sk = (d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-9) ** 3
-        return float(np.maximum(d1[1:-1, 1], 0).sum() + np.maximum(-d1[1:-1, 0], 0).sum() + 400 * np.maximum(-sk[3:-3], 0).sum())
+        allo = others + [("bell03_branch1_wall", branch)]
+        pts, lab = [], []
+        for n, sh in allo:
+            if n == "valve4_knuckle_F1_225_twisted" or not hasattr(sh, "tessellate") or n.endswith("centerline"):
+                continue
+            v = tess_world(sh, 0.15)
+            pts += v
+            lab += [n] * len(v)
+        tree = cKDTree(np.array(pts))
+        def evaluate(x):
+            Pc = ctrl(x)
+            C = Bm @ Pc
+            d1 = np.gradient(C, axis=0)
+            d2 = np.gradient(d1, axis=0)
+            kap = np.linalg.norm(np.cross(d1, d2), axis=1) / np.maximum(np.linalg.norm(d1, axis=1), 1e-9) ** 3
+            kap = kap[2:-2]
+            d, i_ = tree.query(C[6:])
+            # +Z から見た(XY)形: ゆるい U 字(y は減るだけ、x は増えるだけ、曲がりは一方向 = 反時計回りだけ)にするための違反量
+            sk = (d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-9) ** 3
+            viol = float(np.maximum(d1[1:-1, 1], 0).sum() + np.maximum(-d1[1:-1, 0], 0).sum() + 20 * np.maximum(-sk[3:-3], 0).sum())
+            return d.min() - D / 2 - 0.4, 1 / max(kap.max(), 1e-9), float(np.linalg.norm(np.diff(C, axis=0), axis=1).sum()), lab[int(i_[int(np.argmin(d))])]
 
-    def cost(x):
-        g, r, ln, _ = evaluate(x)
-        return 3 * xy_viol(x) + ln + 400 * max(0, gap_req - g) + 40 * max(0, r_min_req - r)
+        def xy_viol(x):
+            """+Z から見た(XY)形をゆるい U 字にするための違反量: y は減るだけ、x は増えるだけ、曲がりは反時計回りだけ。"""
+            C = Bm @ ctrl(x)
+            d1 = np.gradient(C, axis=0)
+            d2 = np.gradient(d1, axis=0)
+            sk = (d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-9) ** 3
+            return float(np.maximum(d1[1:-1, 1], 0).sum() + np.maximum(-d1[1:-1, 0], 0).sum() + 400 * np.maximum(-sk[3:-3], 0).sum())
 
-    lo = np.minimum(E, S) - 25
-    hi = np.maximum(E, S) + 25
-    lo[0] = 40
-    bounds = [(1, 120), (1, 120)] + list(zip(lo, hi)) + [(lo[0], hi[0]), (5, 90)]
-    res = differential_evolution(cost, bounds, seed=1, popsize=25, maxiter=400, tol=1e-8, polish=False)
-    g, rmin, ln, nm = evaluate(res.x)
-    print(f"straight {arg('--straight', STRAIGHT):g} from E + quintic Bezier -> S: gap {g:.3f} ({nm}), min bend R {rmin:.2f}, length {ln:.2f} (cost {res.fun:.2f}); a, b = {res.x[0]:.1f}, {res.x[1]:.1f}")
-    print(f"  XY shape violation (0 = a gentle U seen from +Z): {xy_viol(res.x):.4f}")
-    Pc = ctrl(res.x)
+        def cost(x):
+            g, r, ln, _ = evaluate(x)
+            return 3 * xy_viol(x) + ln + 400 * max(0, gap_req - g) + 40 * max(0, r_min_req - r)
+
+        lo = np.minimum(E, S) - 25
+        hi = np.maximum(E, S) + 25
+        lo[0] = 40
+        bounds = [(1, 120), (1, 120)] + list(zip(lo, hi)) + [(lo[0], hi[0]), (5, 90)]
+        res = differential_evolution(cost, bounds, seed=1, popsize=25, maxiter=400, tol=1e-8, polish=False)
+        g, rmin, ln, nm = evaluate(res.x)
+        print(f"straight {arg('--straight', STRAIGHT):g} from E + quintic Bezier -> S: gap {g:.3f} ({nm}), min bend R {rmin:.2f}, length {ln:.2f} (cost {res.fun:.2f}); a, b = {res.x[0]:.1f}, {res.x[1]:.1f}")
+        print(f"  XY shape violation (0 = a gentle U seen from +Z): {xy_viol(res.x):.4f}")
+        return [float(v) for v in res.x]
+
+    from shape_cache import cached
+
+    xs = cached("main_aux_ctrl", [round(float(v), 6) for v in [*S, *E, gap_req, r_min_req, arg("--angle", ANGLE), arg("--straight", STRAIGHT)]] + [len(others)],
+                Path(__file__), solve)
+    x_best = np.array(xs)
+    Pc = ctrl(x_best)
     print(f"  control points: {Pc.round(2).tolist()}")
     w = Wire([Edge.make_line(Vector(*E), Vector(*E2)), Edge.make_bezier(*[Vector(*p) for p in Pc]),
                   Edge.make_line(Vector(*S), Vector(*(S + arg("--straight-end", STRAIGHT_END) * tS)))])
