@@ -25,6 +25,7 @@ sys.path[:0] = [str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valves/ocp"), s
 X_P1 = 87.5
 OFFSET = 10.0
 Y_S = -40.0
+STRAIGHT_END = 5.0  # S から +X へ足す直線部(ここまでが主管補助管)
 STRAIGHT = 4.0  # E(枝管の出口)につながる、芯線の直線部の長さ(以上)
 X_S = 92.0  # 端点 S の x(P1 の x=87.5 から +X へ延ばして、右側の端点への曲がりを緩やかにする)
 D = 12.0
@@ -243,7 +244,8 @@ def aux_hook(M, branch, others):
     print(f"  XY shape violation (0 = a gentle U seen from +Z): {xy_viol(res.x):.4f}")
     Pc = ctrl(res.x)
     print(f"  control points: {Pc.round(2).tolist()}")
-    w = Wire([Edge.make_line(Vector(*E), Vector(*E2)), Edge.make_bezier(*[Vector(*p) for p in Pc])])
+    w = Wire([Edge.make_line(Vector(*E), Vector(*E2)), Edge.make_bezier(*[Vector(*p) for p in Pc]),
+                  Edge.make_line(Vector(*S), Vector(*(S + arg("--straight-end", STRAIGHT_END) * tS)))])
     print(f"axis length {w.length:.3f}")
     ends = [w.position_at(0.0), w.position_at(1.0)]
     t0, t1 = w.tangent_at(0.0), w.tangent_at(1.0)
