@@ -28,7 +28,7 @@ sys.path[:0] = [str(HERE), str(ROOT / "cad/bb34/ocp"), str(ROOT / "cad/branch2/o
 from main_aux import D, GAP_REQ, R_MIN, tess_world  # noqa: E402,F401
 
 # 手元の探索(tools/split_search.py)の結果 y = (P_m の x, y, z、補助管 1 の円弧の半径、補助管 2 の円弧の半径)。--search で探索し直す
-PRESET = [69.4362, -34.2381, 39.5444, 17.0152, 11.7751]
+PRESET = [69.4892, -34.5027, 39.6341, 13.6442, 11.4307]
 STRAIGHT_SPLIT = 4.0  # 分割点の前後の直線部
 STRAIGHT_E = 4.0  # E 側の直線部の下限
 STRAIGHT_END = 5.0  # 終端側の直線部の下限
