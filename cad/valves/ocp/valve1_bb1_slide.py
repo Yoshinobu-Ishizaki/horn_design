@@ -1,6 +1,6 @@
 """第 1 植込(x=35)の B 階に、Bb 第 1 抜差を配置する(共通モジュール bb_slide.py の桂 6+6 方式)。
 頭管: b1bow(スプライン版、y 軸まわりに反転して張り出しが +x 側)。直管を、桂(頭管側 6・中管側 6)の端面が曲がり始めから 1 mm の位置まで切り詰める。
-中管 54・外管 53(第 3 抜差と同じ。ユーザー指示)。b1bow は全長を約 4 mm 短くした形(bows.py)。抜き量 d は端数。
+中管 65・外管 64(第 3 抜差と同じ。ユーザー指示)。b1bow は全長を約 4 mm 短くした形(bows.py)。抜き量 d は端数。
   uv run python cad/valves/ocp/valve1_bb1_slide.py [--no-mirror]
 """
 
@@ -12,7 +12,7 @@ sys.path.insert(0, str(HERE))
 import bb_slide as S  # noqa: E402
 
 CENTS = 200.0
-L_TUBE = 54.0  # 中管(外管は L-1 = 53)
+L_TUBE = 65.0  # 中管(外管は L-1 = 64)
 VALVE = "valve1"
 
 

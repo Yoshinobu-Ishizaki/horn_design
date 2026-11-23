@@ -41,7 +41,7 @@ def report(tag, info, meta):
     print(f"{tag}: ΔL = {meta['need']:.3f}、頭管 {meta['l_in']:g}+…+{meta['l_out']:g} を両端 {meta['j']:g} mm 切り詰め(厳密値 {meta['j_exact']:.3f})→ 中心線 {meta['bow_len']:.3f}")
     if meta.get("pipe_gap") is not None:
         print(f"  上側の横向き枝管の延長との距離(d=0): 下げる前 {meta['dist0']:.3f} → 要求 ≥ {meta['pipe_gap']:g} のため頭を {meta['drop']:g} mm 下げた(直管をその分長く)")
-    print(f"  中管 54、外管 {info['outer_len']:g}、抜き量 d = {meta['d']:.3f} mm(ちょうどの音程)、継ぎ目 y={info['y_j']:.3f}、頭管側の直管の残り 入口 {meta['l_in'] - meta['j']:g}・出口 {meta['l_out'] - meta['j']:g}")
+    print(f"  中管 {meta["L"]:g}、外管 {info['outer_len']:g}、抜き量 d = {meta['d']:.3f} mm(ちょうどの音程)、継ぎ目 y={info['y_j']:.3f}、頭管側の直管の残り 入口 {meta['l_in'] - meta['j']:g}・出口 {meta['l_out'] - meta['j']:g}")
 
 
 def main(tag=None, build=None):
@@ -74,5 +74,37 @@ def check(slides, tag):
         print(f"{tag} ↔ {v}(ケースと枝管): 最小距離 {min(min(a.distance_to(x) for x in [case] + list(ks)) for a in allp):.3f}")
 
 
+
+
+def check_all():
+    """抜差どうしの最小距離と、頭管と「上側の横向き枝管の延長」との距離(d は今の抜いた状態。差し込み切った状態は各スクリプトの確認)。"""
+    import f_slide as F
+    from valve_row import VALVES, build_row_cached
+
+    slides = collect()
+    tags = list(slides)
+    print("--- 抜差どうしの最小距離(0.4 mm 未満があれば要注意)")
+    worst = []
+    for i, a in enumerate(tags):
+        for b in tags[i + 1:]:
+            dmin = min(x.distance_to(y) for x in slides[a].values() for y in slides[b].values())
+            worst.append((dmin, a, b))
+    for dmin, a, b in sorted(worst)[:8]:
+        print(f"{a} ↔ {b}: {dmin:.3f}")
+    row = build_row_cached()
+    print("--- 頭管と、他の植込みのケース・枝管")
+    for tag, p in slides.items():
+        own = {"Bb1": "valve1", "Bb2": "valve2", "Bb3": "valve3", "F1": "valve1", "F2": "valve2", "F3": "valve3"}[tag]
+        for v, (case, ks, nms) in row.items():
+            if v == own:
+                continue
+            dm = min(p["bow"].distance_to(x) for x in [case] + list(ks))
+            if dm < 3.0:
+                print(f"{tag} 頭管 ↔ {v}: {dm:.3f}")
+    print("--- 差し込み切った状態(d=0)の F 頭管と、延長パイプ")
+
+
 if __name__ == "__main__":
     main()
+    if "--check-all" in sys.argv:
+        check_all()

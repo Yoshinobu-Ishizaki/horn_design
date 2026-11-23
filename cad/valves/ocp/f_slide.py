@@ -25,7 +25,7 @@ F_LENGTH = S.BB_LENGTH + 930.9
 Z_F = 17.0  # 1 階
 JOINT_FERRULE_L = 8.0  # 頭と中管をつなぐ桂(両側飾り)
 STOPPER_L = 10.0  # 中管の途中のストッパの桂
-OUTER_LEN = 32.0  # 外管の長さ(Bb 第 2 抜差と同じ)
+OUTER_LEN = 32.0  # 外管の長さ(Bb 第 2 抜差と同じ。ユーザー指示)
 
 
 def required_extra(cents):
@@ -60,7 +60,7 @@ def slide_parts(x_c, bow_slide, L, d):
 
 
 # ---- F 第 1・第 3 抜差(ストッパなし。外管・中管は Bb 第 1・第 3 と同じ 53・54)--------------------------
-L_TUBE = 54.0  # 中管(Bb と同じ)。外管は L-1 = 53
+L_TUBE = 65.0  # 中管(Bb 第 1・第 3 と同じ)。外管は L-1 = 64
 FREE_FERRULE_L = 12.0  # Bb 第 1・第 3 と同じ桂 L12(頭管側 6・中管側 6)
 FER_ON_BOW = 6.0
 FER_ON_TUBE = FREE_FERRULE_L - FER_ON_BOW  # d=0 で桂の中管側の端がつばに突き当たり、外管 = L-1 = 53 になる
@@ -146,4 +146,4 @@ def build_free(valve, bow_name, mirror, need, pipe_gap=None):
             j, bow_len, d, j_exact, cfg = design_free(bow_name, need, step=0.1, drop=drop)
             bow, _, _ = S.trimmed_bow(bow_name, mirror, j=j)
     parts, info = parts_free(x_c, bow, j, d)
-    return parts, info, dict(j=j, j_exact=j_exact, bow_len=bow_len, d=d, need=need, l_in=cfg.l_in, l_out=cfg.l_out, drop=drop, dist0=dist0, pipe_gap=pipe_gap)
+    return parts, info, dict(j=j, j_exact=j_exact, bow_len=bow_len, d=d, need=need, l_in=cfg.l_in, l_out=cfg.l_out, L=L_TUBE, drop=drop, dist0=dist0, pipe_gap=pipe_gap)
