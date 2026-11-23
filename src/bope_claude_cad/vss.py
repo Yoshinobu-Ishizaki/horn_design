@@ -190,7 +190,8 @@ def variable_pipe_law(
     ``binormal`` の既定は None で、補正フレネル(SetMode(False))。平面でも3次元でも使える
     (断面が円なので、断面のねじれは形に影響しない)。方向ベクトルを渡すと、その向きに
     副法線を固定する(SetMode(gp_Dir))が、芯線が1つの平面にないと破綻する
-    (直線+別平面の2円弧で、体積比0.60・直径誤差14mm)。
+    (直線+別平面の2円弧で、体積比0.60・直径誤差14mm)。``binormal="frenet"`` はフレネ(SetMode(True))。
+    補正フレネで落ちる 3 次元の曲線(2番管の 5 次ベジエ)で使った。曲率 0 の点(直線)を含む芯線では使えない。
     """
     prof = fit_profile(lengths, diameters, centerline.length)
     nodes = prof.spline.x
@@ -223,6 +224,8 @@ def variable_pipe_law(
     ps = BRepOffsetAPI_MakePipeShell(spine.wrapped)
     if binormal is None:
         ps.SetMode(False)
+    elif binormal == "frenet":
+        ps.SetMode(True)
     else:
         ps.SetMode(gp_Dir(*binormal))
     ps.SetLaw(profile.wrapped, law, False, False)
@@ -266,7 +269,7 @@ def variable_pipe_wall(
     """
     inner, prof = variable_pipe_law(centerline, lengths, diameters, **kw)
     if method == "sweep":
-        outer = _offset_sweep(centerline, prof, thickness if outward else -thickness)
+        outer = _offset_sweep(centerline, prof, thickness if outward else -thickness, **kw)
         return _close_wall(inner, outer), prof
     mo = BRepOffsetAPI_MakeOffsetShape()
     mo.PerformByJoin(
