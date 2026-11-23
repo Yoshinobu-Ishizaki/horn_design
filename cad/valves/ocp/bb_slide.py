@@ -149,13 +149,27 @@ def trimmed_bow(name, mirror=True, w=None):
     from build123d import Edge, Plane, Vector, Wire
     from build123d import mirror as b3d_mirror
 
-    _, cfg, v, ref, crv, wire = B.bow_spline(name, w or B.W_DEFAULT)
+    cfg, v, ref, crv, wire = B.bow_curve(name, w or B.W_DEFAULT)
     a = B.analyze(cfg, v, ref, w or B.W_DEFAULT)
     j = min(cfg.l_in, cfg.l_out) - (FER6 + FER6_GAP)
     e2 = wire.edges()[1]
     e1 = Edge.make_line((cfg.start[0], cfg.start[1] - j, 0), (cfg.p0[0], cfg.p0[1], 0))
     e3 = Edge.make_line((cfg.p1[0], cfg.p1[1], 0), (cfg.end[0], cfg.end[1] - j, 0))
-    sol = B.planar_tube(Wire([e1, e2, e3]), Vector(cfg.start[0], cfg.start[1] - j, 0), Vector(math.cos(cfg.th0), math.sin(cfg.th0), 0))
+    import hashlib
+
+    from build123d import export_brep, import_brep
+
+    key = hashlib.sha1(repr((name, v.tolist(), j, w, "t1")).encode()).hexdigest()[:16]
+    f = ROOT / "output" / "cache" / f"trimmed_{name}_{key}.brep"  # 掃引(約 7 秒)の結果をディスクに覚える
+    if f.exists():
+        sol = import_brep(str(f))
+    else:
+        sol = B.planar_tube(Wire([e1, e2, e3]), Vector(cfg.start[0], cfg.start[1] - j, 0), Vector(math.cos(cfg.th0), math.sin(cfg.th0), 0))
+        try:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            export_brep(sol, str(f))
+        except OSError:
+            pass
     sol = Pos(-PITCH / 2, 0, 0) * sol
     if mirror:
         sol = b3d_mirror(sol, Plane.YZ)

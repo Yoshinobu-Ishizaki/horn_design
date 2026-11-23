@@ -54,7 +54,8 @@ def main():
     row = build_row()
     case, ks, names = row[VALVE]
     show(case, *ks, *parts.values(), names=[f"{VALVE}_case"] + names + [f"slide2_{k}" for k in parts], reset_camera=Camera.KEEP)
-    S.check(parts, info, row, VALVE, L, d)
+    if "--check" in sys.argv:  # 干渉・距離の確認は遅い(2 分以上)ので、指定したときだけ
+        S.check(parts, info, row, VALVE, L, d)
 
 
 if __name__ == "__main__":

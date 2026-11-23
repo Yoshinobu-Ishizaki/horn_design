@@ -43,7 +43,8 @@ def main(mirror=True):
     show(case, *ks, case2, *ks2, *parts.values(), *parts2.values(),
          names=[f"{VALVE}_case"] + names + ["valve2_case"] + names2 + [f"slide1_{k}" for k in parts] + [f"slide2_{k}" for k in parts2],
          reset_camera=Camera.KEEP)
-    S.check(parts, info, row, VALVE, L_TUBE, d, others=parts2)
+    if "--check" in sys.argv:  # 干渉・距離の確認は遅い(2 分以上)ので、指定したときだけ
+        S.check(parts, info, row, VALVE, L_TUBE, d, others=parts2)
     bb = parts["bow"].bounding_box()
     print(f"頭管 x=[{bb.min.X:.2f},{bb.max.X:.2f}] y=[{bb.min.Y:.2f},{bb.max.Y:.2f}]")
 

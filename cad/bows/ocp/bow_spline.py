@@ -152,6 +152,24 @@ def reference_separation(cfg: Cfg):
 
 
 def solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3, gap: float | None = None):
+    """最適化の結果をディスク(output/cache/)に覚える。形(cfg)・w・wshape・gap が同じなら、最適化をやり直さない(15〜30 秒)。"""
+    import hashlib
+    from pathlib import Path
+
+    key = hashlib.sha1(repr((cfg.name, cfg.L0.tolist(), cfg.K0.tolist(), cfg.start.tolist(), cfg.th0, cfg.cap, w, wshape, gap, "v1")).encode()).hexdigest()[:16]
+    f = Path(__file__).resolve().parents[3] / "output" / "cache" / f"bow_solve_{cfg.name}_{key}.npy"
+    if f.exists():
+        return np.load(f), reference_points(cfg)
+    v, ref = _solve(cfg, w, wshape, gap)
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        np.save(f, v)
+    except OSError:
+        pass
+    return v, ref
+
+
+def _solve(cfg: Cfg, w: float = W_DEFAULT, wshape: float = 0.3, gap: float | None = None):
     ref = reference_points(cfg)
     tree = cKDTree(ref)
     v0 = cfg.v0
@@ -244,16 +262,23 @@ def planar_tube(wire, start, heading, r_out=bows.OD / 2, r_in=bows.ID / 2):
     return one(r_out) - one(r_in)
 
 
-def bow_spline(name: str, w: float = W_DEFAULT, gap: float | None = None):
-    """戻り値: (管のソリッド, cfg, v, ref, スプライン曲線, 中心線の Wire)。"""
-    from build123d import Edge, Vector, Wire
+def bow_curve(name: str, w: float = W_DEFAULT, gap: float | None = None):
+    """管にする前の、中心線だけ。戻り値: (cfg, v, ref, スプライン曲線, 中心線の Wire)。管の掃引(数秒)を避けたいときに使う。"""
+    from build123d import Edge, Wire
 
     cfg = config(name)
     v, ref = solve(cfg, w, gap=gap)
     e2, crv = spline_edge(cfg, v, w)
     e1 = Edge.make_line((cfg.start[0], cfg.start[1], 0), (cfg.p0[0], cfg.p0[1], 0))
     e3 = Edge.make_line((cfg.p1[0], cfg.p1[1], 0), (cfg.end[0], cfg.end[1], 0))
-    wire = Wire([e1, e2, e3])
+    return cfg, v, ref, crv, Wire([e1, e2, e3])
+
+
+def bow_spline(name: str, w: float = W_DEFAULT, gap: float | None = None):
+    """戻り値: (管のソリッド, cfg, v, ref, スプライン曲線, 中心線の Wire)。"""
+    from build123d import Vector
+
+    cfg, v, ref, crv, wire = bow_curve(name, w, gap)
     h = Vector(math.cos(cfg.th0), math.sin(cfg.th0), 0)
     return planar_tube(wire, Vector(cfg.start[0], cfg.start[1], 0), h), cfg, v, ref, crv, wire
 
