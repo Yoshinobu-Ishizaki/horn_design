@@ -20,6 +20,22 @@ def collect():
     return out
 
 
+V4_NAMES = ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted",
+            "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
+
+
+def valve4_knuckles():
+    """第 4 植込みの枝管 6 本(valve4_knuckle.py)。ソースが変わっていなければキャッシュから読む。"""
+    from shape_cache import cached
+
+    import valve4_knuckle as V
+
+    def build():
+        return [V.twisted_knuckle(), V.connect_knuckle(V.Z_F2), V.connect_knuckle(V.Z_F1), V.mirrored_twisted_knuckle(), V.twisted_knuckle_2f(), V.knuckle_2f_right()]
+
+    return cached("valve4_knuckles", "v1", Path(__file__).resolve().parent / "valve4_knuckle.py", build)
+
+
 def show_all(slides):
     from ocp_vscode import Camera
 
@@ -31,6 +47,8 @@ def show_all(slides):
     for v, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{v}_case"] + nms
+    parts += valve4_knuckles()
+    names += V4_NAMES
     for tag, p in slides.items():
         parts += list(p.values())
         names += [f"{tag}_{k}" for k in p]
