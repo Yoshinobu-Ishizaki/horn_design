@@ -216,11 +216,22 @@ def aux_hook(M, branch, others):
         kap = np.linalg.norm(np.cross(d1, d2), axis=1) / np.maximum(np.linalg.norm(d1, axis=1), 1e-9) ** 3
         kap = kap[2:-2]
         d, i_ = tree.query(C[6:])
+        # +Z から見た(XY)形: ゆるい U 字(y は減るだけ、x は増えるだけ、曲がりは一方向 = 反時計回りだけ)にするための違反量
+        sk = (d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-9) ** 3
+        viol = float(np.maximum(d1[1:-1, 1], 0).sum() + np.maximum(-d1[1:-1, 0], 0).sum() + 20 * np.maximum(-sk[3:-3], 0).sum())
         return d.min() - D / 2 - 0.4, 1 / max(kap.max(), 1e-9), float(np.linalg.norm(np.diff(C, axis=0), axis=1).sum()), lab[int(i_[int(np.argmin(d))])]
+
+    def xy_viol(x):
+        """+Z から見た(XY)形をゆるい U 字にするための違反量: y は減るだけ、x は増えるだけ、曲がりは反時計回りだけ。"""
+        C = Bm @ ctrl(x)
+        d1 = np.gradient(C, axis=0)
+        d2 = np.gradient(d1, axis=0)
+        sk = (d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-9) ** 3
+        return float(np.maximum(d1[1:-1, 1], 0).sum() + np.maximum(-d1[1:-1, 0], 0).sum() + 400 * np.maximum(-sk[3:-3], 0).sum())
 
     def cost(x):
         g, r, ln, _ = evaluate(x)
-        return ln + 400 * max(0, gap_req - g) + 40 * max(0, r_min_req - r)
+        return 3 * xy_viol(x) + ln + 400 * max(0, gap_req - g) + 40 * max(0, r_min_req - r)
 
     lo = np.minimum(E, S) - 25
     hi = np.maximum(E, S) + 25
@@ -229,6 +240,7 @@ def aux_hook(M, branch, others):
     res = differential_evolution(cost, bounds, seed=1, popsize=25, maxiter=400, tol=1e-8, polish=False)
     g, rmin, ln, nm = evaluate(res.x)
     print(f"straight {arg('--straight', STRAIGHT):g} from E + quintic Bezier -> S: gap {g:.3f} ({nm}), min bend R {rmin:.2f}, length {ln:.2f} (cost {res.fun:.2f}); a, b = {res.x[0]:.1f}, {res.x[1]:.1f}")
+    print(f"  XY shape violation (0 = a gentle U seen from +Z): {xy_viol(res.x):.4f}")
     Pc = ctrl(res.x)
     print(f"  control points: {Pc.round(2).tolist()}")
     w = Wire([Edge.make_line(Vector(*E), Vector(*E2)), Edge.make_bezier(*[Vector(*p) for p in Pc])])
