@@ -4,7 +4,10 @@
 芯線の最高点の接線まわりに TILT_DEG の傾き)。ベルスクリューは、その同じ変換で置く(組立用の外形だけ)。
 cad/valves のファイルは直さず、関数を借りる。
 
-    uv run python cad/bellscrew/ocp/assy_with_valves.py [--X 5] [--B -60] [--C 50] [--tilt 4.5]
+`--pull Bb3,F3 --tip -10`: 抜差を抜いた状態で出す(cad/valves/ocp/pullout_check.py と同じ決め方)。中管の先端が、
+外管の開いた端から --tip mm の所まで(負なら外へ出る。-10 で完全に抜けて 10 mm 離れる)。中管・桂・頭管を -Y へ動かす。
+
+    uv run python cad/bellscrew/ocp/assy_with_valves.py [--X 5] [--B -60] [--C 50] [--tilt 4.5] [--pull Bb3,F3 --tip -10]
 """
 
 from __future__ import annotations
@@ -31,6 +34,8 @@ def main() -> None:
     arg = lambda k, d: float(sys.argv[sys.argv.index(k) + 1]) if k in sys.argv else d  # noqa: E731
     X, B, C = arg("--X", 5.0), arg("--B", -60.0), arg("--C", 50.0)
     deg = arg("--tilt", BP.TILT_DEG)
+    pulls = sys.argv[sys.argv.index("--pull") + 1].split(",") if "--pull" in sys.argv else []
+    tip = arg("--tip", -10.0)
 
     info = cached("bell03_walls", BP.WALL, ROOT / "cad/bell03/ocp/bell03_surface.py", BP.build_bell)
     _, _, M, ctr = BP.placed_manual(B, C, X)
@@ -50,7 +55,17 @@ def main() -> None:
         names += [f"{v}_case"] + nms
     parts += A.valve4_knuckles()
     names += A.V4_NAMES
-    for tag, p in A.collect().items():
+    from build123d import Pos
+
+    slides = A.collect()
+    for tag in pulls:
+        p = slides[tag]
+        outer_end = p["outer_tube_L"].bounding_box().min.Y  # 外管の開いた端(つば側)
+        inner_tip = p["inner_tube_L"].bounding_box().max.Y  # 中管の先端
+        pull = (inner_tip - outer_end) - tip
+        slides[tag] = {k: (v if k.startswith("outer_tube") else Pos(0, -pull, 0) * v) for k, v in p.items()}
+        print(f"{tag}: pulled {pull:.2f} mm (inner tip {abs(tip):g} mm {'outside' if tip < 0 else 'inside'} the outer tube end)")
+    for tag, p in slides.items():
         parts += list(p.values())
         names += [f"{tag}_{k}" for k in p]
     parts += [bell, branch, screw]
