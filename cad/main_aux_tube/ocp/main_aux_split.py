@@ -1,12 +1,13 @@
 """主管補助管を、おおよそ中央の分割点で補助管 1(第 4 植込 = 出口 E に近い側)と補助管 2 に分ける。座標は管体組立のワールド。
 
 - 分割点 P_m の前後に 4 mm ずつの直線部(合わせて 8 mm の直線)。分割点での向き t_m は共通。
-- 補助管 1: E(向き u)→ 平面 Π1 の中で「直線 + 円弧 + 直線(最後の 4 mm は P_m の手前)」→ P_m。
-- 補助管 2: P_m(向き t_m)→ 平面 Π2 の中で「直線(最初の 4 mm)+ 円弧 + 直線」→ S の先 5 mm(向き (1,0,0))。
+- 補助管 1: E(向き u、最初の 4 mm は直線)→ 平面 Π1 の中で「直線 + 円弧 + 直線 + 円弧 + 直線(最後の 4 mm は P_m の手前)」→ P_m。
+- 補助管 2: P_m(向き t_m、最初の 4 mm は直線)→ 平面 Π2 の中で「直線 + 円弧 + 直線 + 円弧 + 直線(最後の 5 mm)」→ S の先 5 mm(向き (1,0,0))。
+  円弧は 2 つとも同じ半径(補助管ごと)、2 つの円弧の間の直線は 0 以上。
 - Π1 と Π2 は t_m を含む別の平面で、分割点で捩れる(t_m まわりの回転)。
-- P_m・t_m・Π1 は、今の主管補助管(main_aux.py の 5 次ベジェ)の芯線にできるだけ近く、隙間 ≥ GAP_REQ・最小曲げ半径 ≥ R_MIN になるように決める。
-  変数 5 つ(P_m の位置 3 と t_m の向き 2)を、基準の芯線の中央付近から始めた差分進化 + SLSQP で。2 つの平面の条件(E, u, P_m, t_m が同一平面、P_m, t_m, S, (1,0,0) が
-  同一平面)は、SLSQP の等式で満たす。結果は shape_cache に覚える。
+- P_m の位置(3)と、補助管 1・2 の円弧の半径(2)を、今の主管補助管(main_aux.py の 5 次ベジェ)の芯線にできるだけ近く、隙間 ≥ GAP_REQ・半径 ≥ R_MIN
+  になるように決める。t_m は、2 つの平面の条件(E, u, P_m が Π1、P_m, S, (1,0,0) が Π2)の交線から一意に決まる(`tm_of`)。
+  結果は PRESET に書き写してある(tools/split_search.py の探索)。`--search` で、この場で探索し直す。
 
     uv run python cad/main_aux_tube/ocp/main_aux_split.py
 """
@@ -26,8 +27,8 @@ sys.path[:0] = [str(HERE), str(ROOT / "cad/bb34/ocp"), str(ROOT / "cad/branch2/o
 
 from main_aux import D, GAP_REQ, R_MIN, tess_world  # noqa: E402,F401
 
-# 手元の探索(tools/split_search.py、種 1。範囲 ±45 mm・全方向、隙間 ≥ 0.3 を重く)の結果 y = (P_m, θ, φ)。--search を付けると、この場で探索し直す
-PRESET = [72.486, -52.791, 75.196, 1.21, 1.21]
+# 手元の探索(tools/split_search.py)の結果 y = (P_m の x, y, z、補助管 1 の円弧の半径、補助管 2 の円弧の半径)。--search で探索し直す
+PRESET = [69.4362, -34.2381, 39.5444, 17.0152, 11.7751]
 STRAIGHT_SPLIT = 4.0  # 分割点の前後の直線部
 STRAIGHT_E = 4.0  # E 側の直線部の下限
 STRAIGHT_END = 5.0  # 終端側の直線部の下限
@@ -71,57 +72,145 @@ def planar_path(A, d1, B, d2, exact, st_exact, st_min, n=120):
     return out
 
 
+def csc_path(A, d1, B, d2, r, st_start, st_end, n=160):
+    """A(向き d1)→ B(向き d2)の、平面内の「直線(st_start)+ 円弧 + 直線 + 円弧 + 直線(st_end)」(2 つの円弧は同じ半径 r。最短の組)。
+    A, d1, B, d2 は同一平面内でなければならない(resid はそのずれ)。戻り値: dict(ok, P(点列), length, segs(Wire 用: ("line", p, q) / ("arc", p, mid, q)), R, resid)。"""
+    A, B, d1, d2 = (np.asarray(v, float) for v in (A, B, d1, d2))
+    A2, B2 = A + st_start * d1, B - st_end * d2
+    nrm = np.cross(d1, B2 - A2)
+    if np.linalg.norm(nrm) < 1e-9:
+        nrm = np.cross(d1, d2)
+    if np.linalg.norm(nrm) < 1e-9:
+        return dict(ok=False, resid=0.0, viol=1.0)
+    nrm /= np.linalg.norm(nrm)
+    ex, ey = d1, np.cross(nrm, d1)
+    resid = abs(float(nrm @ d2))  # d2 が平面から出る成分
+    G = np.array([(B2 - A2) @ ex, (B2 - A2) @ ey])
+    th = math.atan2(float(d2 @ ey), float(d2 @ ex))
+    TWO = 2 * math.pi
+    cl0, cr0 = np.array([0.0, r]), np.array([0.0, -r])
+    cl1 = G + r * np.array([-math.sin(th), math.cos(th)])
+    cr1 = G + r * np.array([math.sin(th), -math.cos(th)])
+    cands = []
+
+    def add(kind, c0, c1, psi, L):
+        if L < -1e-9:
+            return
+        if kind[0] == "L":
+            al = psi % TWO
+        else:
+            al = (-psi) % TWO
+        if kind[1] == "L":
+            be = (th - psi) % TWO
+        else:
+            be = (psi - th) % TWO
+        cands.append((r * (al + be) + max(L, 0.0), kind, c0, c1, psi, max(L, 0.0), al, be))
+
+    for kind, c0, c1 in (("LL", cl0, cl1), ("RR", cr0, cr1)):
+        c = c1 - c0
+        psi = math.atan2(c[1], c[0])
+        add(kind, c0, c1, psi, float(np.linalg.norm(c)))
+    for kind, c0, c1, sg in (("LR", cl0, cr1, +1), ("RL", cr0, cl1, -1)):
+        c = c1 - c0
+        d = float(np.linalg.norm(c))
+        if d < 2 * r:
+            continue
+        phic = math.atan2(c[1], c[0])
+        for psi in (phic + sg * math.asin(2 * r / d), phic + math.pi - sg * math.asin(2 * r / d)):
+            dirv = np.array([math.cos(psi), math.sin(psi)])
+            if kind == "LR":
+                p0, p1 = c0 + r * np.array([math.sin(psi), -math.cos(psi)]), c1 + r * np.array([-math.sin(psi), math.cos(psi)])
+            else:
+                p0, p1 = c0 + r * np.array([-math.sin(psi), math.cos(psi)]), c1 + r * np.array([math.sin(psi), -math.cos(psi)])
+            L = float((p1 - p0) @ dirv)
+            if abs(float((p1 - p0)[0] * dirv[1] - (p1 - p0)[1] * dirv[0])) < 1e-6:
+                add(kind, c0, c1, psi, L)
+    if not cands:
+        return dict(ok=False, resid=resid, viol=1.0)
+    tot, kind, c0, c1, psi, L, al, be = min(cands, key=lambda c: c[0])
+    to3 = lambda q: A2 + q[0] * ex + q[1] * ey  # noqa: E731
+
+    def arc_pts(c, a0, ang, left, k=40):
+        ts = np.linspace(0, 1, k)
+        sgn = 1 if left else -1
+        # 位置 = c + r·(円の上の点)。ヘディング h の位置: 左 c + r(sin h, -cos h)、右 c + r(-sin h, cos h)
+        hs = a0 + sgn * ang * ts
+        return np.array([c + r * (np.array([math.sin(h), -math.cos(h)]) if left else np.array([-math.sin(h), math.cos(h)])) for h in hs])
+
+    a_pts = arc_pts(c0, 0.0, al, kind[0] == "L")
+    b_pts = arc_pts(c1, psi, be, kind[1] == "L")
+    pts2 = [a_pts, b_pts]
+    segs = []
+    pts = [A, A2]
+    segs.append(("line", A, A2))
+    a0, a1 = to3(a_pts[0]), to3(a_pts[-1])
+    if al > 1e-6:
+        segs.append(("arc", a0, to3(a_pts[len(a_pts) // 2]), a1))
+    b0, b1 = to3(b_pts[0]), to3(b_pts[-1])
+    if L > 1e-6:
+        segs.append(("line", a1, b0))
+    if be > 1e-6:
+        segs.append(("arc", b0, to3(b_pts[len(b_pts) // 2]), b1))
+    segs.append(("line", b1, B2))
+    segs.append(("line", B2, B))
+    P = [A, A2] + [to3(q) for q in a_pts] + [to3(q) for q in b_pts] + [B2, B]
+    P = np.array(P)
+    # 点列を等間隔に近くして返す(距離の評価用)
+    dense = []
+    for q0, q1 in zip(P[:-1], P[1:]):
+        k = max(2, int(np.linalg.norm(q1 - q0) / 1.5))
+        dense += [q0 + (q1 - q0) * t for t in np.linspace(0, 1, k, endpoint=False)]
+    dense.append(P[-1])
+    return dict(ok=True, P=np.array(dense), length=float(st_start + st_end + tot), segs=segs, R=r, resid=resid, kind=kind, al=math.degrees(al), be=math.degrees(be), L=L,
+                viol=0.0)
+
+
+def tm_of(Pm, E, u, S_end, tS):
+    """P_m での向き t_m: 平面 Π1(E, u, P_m を含む)と Π2(P_m, S_end, tS を含む)の交線の向き(E → S_end 側へ)。"""
+    n1, n2 = np.cross(u, Pm - E), np.cross(tS, S_end - Pm)
+    t = np.cross(n1, n2)
+    nt = np.linalg.norm(t)
+    if nt < 1e-9:
+        return None
+    t = t / nt
+    return t if t @ (S_end - E) >= 0 else -t
+
+
 def build(y, E, u, S_end, tS):
-    """変数 y = (P_m の x, y, z, t_m の極角 θ, 方位角 φ)から、P_m、t_m、補助管 1、補助管 2 を作る。"""
+    """変数 y = (P_m の x, y, z、補助管 1 の円弧の半径、補助管 2 の円弧の半径)から、P_m、t_m、補助管 1、補助管 2 を作る。"""
     Pm = np.asarray(y[:3], float)
-    th, ph = y[3], y[4]
-    tm = np.array([math.sin(th) * math.cos(ph), math.sin(th) * math.sin(ph), math.cos(th)])
-    p1 = planar_path(E, u, Pm, tm, "end", STRAIGHT_SPLIT, STRAIGHT_E)
-    p2 = planar_path(Pm, tm, S_end, tS, "start", STRAIGHT_SPLIT, STRAIGHT_END)
+    tm = tm_of(Pm, E, u, S_end, tS)
+    if tm is None:
+        return Pm, None, dict(ok=False), dict(ok=False)
+    p1 = csc_path(E, u, Pm, tm, y[3], STRAIGHT_E, STRAIGHT_SPLIT)
+    p2 = csc_path(Pm, tm, S_end, tS, y[4], STRAIGHT_SPLIT, STRAIGHT_END)
     return Pm, tm, p1, p2
 
 
 def solve(E, u, S_end, tS, ref, tree_obs, r_min, gap_req):
-    from scipy.optimize import differential_evolution, minimize
+    from scipy.optimize import differential_evolution
     from scipy.spatial import cKDTree
 
     tref = cKDTree(ref)
-    ref_s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(ref, axis=0), axis=1))])
-    i_mid = int(np.searchsorted(ref_s, ref_s[-1] / 2))
-    Pm0 = ref[i_mid]
-    t0 = ref[min(i_mid + 3, len(ref) - 1)] - ref[max(i_mid - 3, 0)]
-    t0 /= np.linalg.norm(t0)
-    th0, ph0 = math.acos(t0[2]), math.atan2(t0[1], t0[0])
+    mid = ref[len(ref) // 2]
 
-    def resid2(y):
-        _, _, p1, p2 = build(y, E, u, S_end, tS)
-        return p1["resid"], p2["resid"]
-
-    def cost(y, soft=True):
+    def cost(y):
         Pm, tm, p1, p2 = build(y, E, u, S_end, tS)
-        r1, r2 = p1["resid"], p2["resid"]
-        c = (100.0 if soft else 0.0) * (r1 + r2)
-        if not (p1["ok"] and p2["ok"]):
-            return 1e3 + 200 * (p1["viol"] + p2["viol"]) + c
+        if tm is None or not (p1["ok"] and p2["ok"]):
+            return 1e3
         Pn = np.vstack([p1["P"], p2["P"]])
-        d1_, _ = tref.query(Pn)
-        d2_, _ = cKDTree(Pn).query(ref)
+        d1_ = tref.query(Pn)[0]
+        d2_ = cKDTree(Pn).query(ref)[0]
         dev = d1_.mean() + d2_.mean() + 0.5 * max(d1_.max(), d2_.max())
         gap = tree_obs.query(Pn)[0].min() - D / 2 - 0.4
-        rmin = min(p1["R"], p2["R"])
-        _, i0 = tref.query(Pm)
-        fr = ref_s[i0] / ref_s[-1]
-        return dev + c + 400 * max(0, gap_req - gap) + 40 * max(0, r_min - rmin) + 50 * max(0, abs(fr - 0.5) - 0.1)
+        la, lb = p1["length"], p2["length"]
+        return dev + 1500 * max(0, gap_req - gap) + 60 * max(0, abs(la / (la + lb) - 0.5) - 0.15) + 0.05 * (la + lb)
 
-    bounds = [(Pm0[0] - 25, Pm0[0] + 25), (Pm0[1] - 25, Pm0[1] + 25), (Pm0[2] - 25, Pm0[2] + 25), (th0 - 0.8, th0 + 0.8), (ph0 - 0.8, ph0 + 0.8)]
-    rng = np.random.default_rng(3)
-    pop = np.column_stack([Pm0[0] + rng.normal(0, 6, 150), Pm0[1] + rng.normal(0, 6, 150), Pm0[2] + rng.normal(0, 6, 150),
-                           th0 + rng.normal(0, 0.25, 150), ph0 + rng.normal(0, 0.25, 150)])
-    res = differential_evolution(cost, bounds, seed=3, init=pop, maxiter=250, tol=1e-9, polish=False)
-    r2 = minimize(lambda y: cost(y, False), res.x, method="SLSQP", bounds=bounds,
-                  constraints=[{"type": "eq", "fun": lambda y: resid2(y)[0]}, {"type": "eq", "fun": lambda y: resid2(y)[1]}], options=dict(maxiter=300, ftol=1e-10))
-    y = r2.x if (max(resid2(r2.x)) < 1e-4 and cost(r2.x) <= cost(res.x) + 1e-6) else res.x
-    return [float(v) for v in y], float(cost(y)), float(max(resid2(y)))
+    rng = np.random.default_rng(0)
+    bounds = [(mid[i] - 40, mid[i] + 40) for i in range(3)] + [(r_min, 60), (r_min, 60)]
+    init = np.array([np.concatenate([mid + rng.normal(0, 12, 3), [rng.uniform(r_min, 40), rng.uniform(r_min, 40)]]) for _ in range(60)])
+    res = differential_evolution(cost, bounds, seed=0, init=init, maxiter=100, tol=1e-10, polish=False)
+    return [float(v) for v in res.x], float(res.fun), 0.0
 
 
 def hook(M, branch, others):
@@ -171,22 +260,23 @@ def hook(M, branch, others):
                      Path(__file__), build_solution)
     x = sol[:5]
     Pm, tm, p1, p2 = build(x, E, u, S_end, tS)
-    print(f"solution y(P_m, θ, φ) = {np.round(x, 4).tolist()}, cost {sol[5]:.3f}, line-intersection residual {sol[6]:.2e}")
+    print(f"solution y(P_m, r1, r2) = {np.round(x, 4).tolist()}")
     print(f"split point P_m {Pm.round(3).tolist()}, direction t_m {tm.round(4).tolist()}")
     n1, n2 = np.cross(u, tm), np.cross(tm, tS)
     n1, n2 = n1 / np.linalg.norm(n1), n2 / np.linalg.norm(n2)
     twist = math.degrees(math.acos(float(np.clip(n1 @ n2, -1, 1))))
     print(f"plane normals: Π1 {n1.round(4).tolist()}, Π2 {n2.round(4).tolist()}; twist about t_m {twist:.2f} deg")
     for nm, p in (("aux1", p1), ("aux2", p2)):
-        print(f"{nm}: straight {p['s1']:.3f} + arc R {p['R']:.3f} ({p['theta']:.2f} deg) + straight {p['s2']:.3f}; length {p['length']:.3f}; coplanarity {p['resid']:.1e}")
+        print(f"{nm}: {p['kind']} arcs R {p['R']:.3f} x {p['al']:.1f} / {p['be']:.1f} deg, middle straight {p['L']:.3f}; length {p['length']:.3f}; coplanarity {p['resid']:.1e}")
     Pn = np.vstack([p1["P"], p2["P"]])
     d1_ = cKDTree(ref).query(Pn)[0]
     d2_ = cKDTree(Pn).query(ref)[0]
     print(f"deviation from the unsplit axis: max {max(d1_.max(), d2_.max()):.3f}, mean {d1_.mean():.3f}; total length {p1['length'] + p2['length']:.3f}")
 
     def wire(p):
-        return Wire([Edge.make_line(Vector(*p["A"]), Vector(*p["a"])), Edge.make_three_point_arc(Vector(*p["a"]), Vector(*p["mid"]), Vector(*p["b"])),
-                     Edge.make_line(Vector(*p["b"]), Vector(*p["B"]))])
+        es = [Edge.make_line(Vector(*q[1]), Vector(*q[2])) if q[0] == "line" else Edge.make_three_point_arc(Vector(*q[1]), Vector(*q[2]), Vector(*q[3])) for q in p["segs"]
+              if not (q[0] == "line" and np.linalg.norm(np.asarray(q[1]) - np.asarray(q[2])) < 1e-6)]
+        return Wire(es)
 
     w1_, w2_ = wire(p1), wire(p2)
     t1, t2 = U.const_d_tube(w1_, D, BP.WALL), U.const_d_tube(w2_, D, BP.WALL)
