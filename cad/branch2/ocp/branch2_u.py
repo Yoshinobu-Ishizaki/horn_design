@@ -96,11 +96,10 @@ def placement(M, pitch=PITCH):
     return T, dict(P0=P0, a=a, n=n, phi=math.degrees(phi), N=N, E=E, t=t, d0=d0, to_line=to_line)
 
 
-def main() -> None:
-    import assy_with_valves as AW
+def hook(M, branch, others):
     import bell_place as BP
 
-    def hook(M, branch, others):
+    if True:
         w, info = u_wire_local(PITCH)
         T, pl = placement(M)
         ww = BP.apply(w, T)
@@ -139,6 +138,11 @@ def main() -> None:
 
         B2.report_clearance(tube, others)
         return branch, [tube, ww], ["branch2_U_wall", "branch2_U_centerline"], ["#20c0a0", "#ff2020"]
+
+
+
+def main() -> None:
+    import assy_with_valves as AW
 
     AW.main(hook=hook)
 

@@ -180,8 +180,11 @@ def main() -> None:
         B2.report_clearance(tube, others)
         print("clearance (straight):")
         B2.report_clearance(straight, others)
-        return (branch, [tube, straight, ltube, ww, lw], ["bb34_U_wall", "bb34_straight_wall", "bb34_L_wall", "bb34_U_centerline", "bb34_L_centerline"],
-                ["#e0a020", "#e0a020", "#e0a020", "#ff2020", "#ff2020"])
+        # 2番管(管体組立の一部)も一緒に出す
+        branch, p2, n2, c2 = U.hook(M, branch, others)
+        return (branch, p2 + [tube, straight, ltube, ww, lw],
+                n2 + ["bb34_U_wall", "bb34_straight_wall", "bb34_L_wall", "bb34_U_centerline", "bb34_L_centerline"],
+                c2 + ["#e0a020", "#e0a020", "#e0a020", "#ff2020", "#ff2020"])
 
     AW.main(hook=hook)
 
