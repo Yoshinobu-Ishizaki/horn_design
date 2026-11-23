@@ -91,7 +91,17 @@ def hook(M, branch, others):
     print(f"U tube D {INNER_TUBE_ID:g} wall {BP.WALL:g}: valid {utube.is_valid}, volume {sum(x.volume for x in utube.solids()):.2f}; distance to the inner tube {utube.distance_to(part):.3f}")
     print("clearance (U):")
     B2.report_clearance(utube, others + [("Bb_return_inner_tube", part)])
-    return branch, p0 + [part, utube, ww], n0 + ["Bb_return_inner_tube", "Bb_return_U_wall", "Bb_return_U_centerline"], c0 + ["#e0a020", "#e0a020", "#ff2020"]
+    # U 字のもう一方の端(+Y 向き)に、中管をもう 1 本。長さは反対側の中管と同じ(INNER_TUBE_LEN を共有)。桂の側が U、先端が +Y 側
+    length2 = float(sys.argv[sys.argv.index("--len2") + 1]) if "--len2" in sys.argv else length
+    q = np.array([q1.X, q1.Y, q1.Z])
+    part2 = Pos(q[0], q[1] + length2, q[2]) * inner_tube_part(length2)  # 先端 y = q.y + length2、桂側 y = q.y
+    b3 = part2.bounding_box()
+    print(f"2nd inner tube (length {length2:g}): at {q.round(3).tolist()}, y {b3.min.Y:.3f}..{b3.max.Y:.3f}, x {b3.min.X:.2f}..{b3.max.X:.2f}, z {b3.min.Z:.2f}..{b3.max.Z:.2f}; distance to the U tube {part2.distance_to(utube):.3f}")
+    print("clearance (2nd inner tube):")
+    B2.report_clearance(part2, others + [("Bb_return_U_wall", utube)])
+    return (branch, p0 + [part, utube, ww, part2],
+            n0 + ["Bb_return_inner_tube", "Bb_return_U_wall", "Bb_return_U_centerline", "Bb_return_inner_tube_2"],
+            c0 + ["#e0a020", "#e0a020", "#ff2020", "#e0a020"])
 
 
 def main() -> None:
