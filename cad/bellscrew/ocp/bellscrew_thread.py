@@ -2,7 +2,7 @@
 
 - 座標は bell03 の設計の座標(回す前。リム中心 (0,0)、直管部は +Y)。ベルの軸は Y 軸。
 - 円環は y = Y_SPLIT ± HALF。外側は bellscrew_ring.py と同じ考え方の円弧(半径 ARC_R)。
-  端の直径は「ベルの外径 + EXTRA_D」と「メスの最小肉厚を取れる径 THREAD_D + 2·FEMALE_WALL」の大きい方。
+  端の直径は D_BOT(y = Y_SPLIT - HALF)・D_TOP(y = Y_SPLIT + HALF)。
 - オス(下側、リム側): y = Y_SPLIT - HALF .. Y_SPLIT。分割面のすぐ下 THREAD_LEN がおねじ(M80×1)、
   その下(HALF - THREAD_LEN = 2 mm)が外側の円弧のツバ。
 - メス(上側): y = Y_SPLIT - THREAD_LEN .. Y_SPLIT + HALF。分割面より下の THREAD_LEN はおねじにかぶさる
@@ -34,8 +34,8 @@ THREAD_D = 80.0  # M80
 PITCH = 1.0  # P1
 THREAD_LEN = 4.0  # ねじ部の長さ
 CLEAR = 0.05  # おねじを半径で小さくする量(めねじとのすき間)
-FEMALE_WALL = 1.0  # めねじの谷(⌀80)から外側までの最小の肉厚
-EXTRA_D = 2.0  # 端の外径の下限 = ベルの外径 + EXTRA_D
+D_BOT = 80.0  # 下端(y 126)の外径。最初は 82(めねじの肉厚 1 mm から)で、厚すぎたので -2
+D_TOP = 74.0  # 上端(y 138)の外径。最初は 82 で、厚すぎたので -8
 ARC_R = 11.0  # 外側の断面の円弧の半径
 WALL = 0.4  # ベルの板厚(外向き)
 
@@ -97,9 +97,9 @@ def build():
     bell = wall + bore  # ベルの外面の内側すべて
 
     y0, yt, ys, y1 = Y_SPLIT - HALF, Y_SPLIT - THREAD_LEN, Y_SPLIT, Y_SPLIT + HALF  # yt..ys がねじ部
-    d_min = THREAD_D + 2 * FEMALE_WALL
-    d_bot = max(outer_diameter(wall, y0) + EXTRA_D, d_min)
-    d_top = max(outer_diameter(wall, y1) + EXTRA_D, d_min)
+    d_bot, d_top = D_BOT, D_TOP
+    for y, d in ((y0, d_bot), (y1, d_top)):
+        print(f"end y {y:g}: outer D {d:.3f}, bell outer D {outer_diameter(wall, y):.3f}")
     body, arc = outer_profile(d_bot, d_top, y0, y1)
 
     def cyl(r, ya, yb):
