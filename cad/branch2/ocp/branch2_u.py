@@ -22,7 +22,7 @@ ROOT = HERE.parents[2]
 sys.path[:0] = [str(HERE), str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valves/ocp"), str(ROOT / "cad/bows/ocp"),
                 str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
-PITCH = 40.0  # 最初は 50、ユーザー指示で 40
+PITCH = 60.0  # 50 → 40 → 60(ユーザー指示で試す)
 
 
 def valve4_exit():
