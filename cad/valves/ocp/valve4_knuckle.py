@@ -112,6 +112,12 @@ def knuckle_2f_upper_right(pull: float = CONNECT_PULL):
     return Pos(X_VALVE4, 0, Z_F2) * Rot(0, 0, 45.0) * Pos(pull, 0, 0) * Rot(180, 0, 0) * knuckle(45.0)
 
 
+def knuckle_1f_lower_right_down(pull: float = CONNECT_PULL):
+    """第 4 の 1 階・右下の孔(315°、+x,-y)の 45° 枝管。1 本目 315°、折れは時計回りに 45° → 2 本目は -Y 向き(315° - 45° = 270°)。
+    (2026-11-23 ユーザー指示: ねじった枝管の鏡映をやめ、出口を下(-Y)に向ける)"""
+    return Pos(X_VALVE4, 0, Z_F1) * Rot(0, 0, 315.0) * Pos(pull, 0, 0) * Rot(180, 0, 0) * knuckle(45.0)
+
+
 def mirrored_twisted_knuckle():
     """第 4 の 1 階・右下の孔(315°、+x,-y)の枝管。左下の孔(225°)のねじった枝管(twisted_knuckle)を、
     第 4 の中心を通る YZ 平面(x = X_VALVE4)で鏡映したもの。1 本目 315°、出口側の軸の XY 投影は同じ (0,-1)、
@@ -135,8 +141,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), mirrored_twisted_knuckle(), twisted_knuckle_2f(), knuckle_2f_right()]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
+    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right_down(), twisted_knuckle_2f(), knuckle_2f_right()]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_minusy", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 
