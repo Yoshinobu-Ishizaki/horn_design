@@ -7,10 +7,12 @@
 - メス(上側): y = Y_SPLIT - THREAD_LEN .. Y_SPLIT + ABOVE。分割面より下の THREAD_LEN はおねじにかぶさる
   めねじ、分割面より上はベルの外面に沿う。外から見える合わせ目は y = Y_SPLIT - THREAD_LEN。
 - 内側はどちらもベルの外面(板厚 WALL)で切り取る。ベルのモデルは切らない。
+- 既定は、組立のモデルを軽くするため、ねじもオス・メスの分割もない、組み合わせた状態の外形だけ。
+  `--detail` でオス・メスに分けてねじを付ける。
 - ねじは ISO の基準山形(60°、山頂の平らは P/8、谷は P/4 の平ら)を螺旋に沿って掃引した形。
   おねじは半径で CLEAR だけ小さくして、めねじとのすき間にする(公差域は未決)。
 
-    uv run python cad/bellscrew/ocp/bellscrew_thread.py [--show]
+    uv run python cad/bellscrew/ocp/bellscrew_thread.py [--show] [--detail]
 """
 
 from __future__ import annotations
@@ -83,7 +85,9 @@ def outer_profile(d_bot: float, d_top: float, y0: float, y1: float):
     return revolve(prof, Axis.Y, 360), (c, ARC_R)
 
 
-def build():
+def build(detail: bool = False):
+    """detail=False(既定): ねじもオス・メスの分割もない、組み合わせた状態の外形1つ(組立用に軽く)。
+    detail=True: オス・メスに分け、ねじを付ける。"""
     from build123d import Align, Cylinder, Pos, Rot
 
     from bell03_surface import LD_CSV, centerline, read_ld
@@ -101,6 +105,9 @@ def build():
     for y, d in ((y0, d_bot), (y1, d_top)):
         print(f"end y {y:g}: outer D {d:.3f}, bell outer D {outer_diameter(wall, y):.3f}")
     body, arc = outer_profile(d_bot, d_top, y0, y1)
+    info = {"y": (y0, yt, ys, y1), "d_bot": d_bot, "d_top": d_top, "arc": arc}
+    if not detail:
+        return body - bell, None, wall, info
 
     def cyl(r, ya, yb):
         return Pos(0, ya, 0) * Rot(-90, 0, 0) * Cylinder(r, yb - ya, align=(Align.CENTER, Align.CENTER, Align.MIN))
@@ -114,19 +121,34 @@ def build():
     # メス: 本体の yt..y1 から、めねじの内径の穴と、螺旋の溝(おねじの基準山形と同じ形)を除く
     groove = helix_tooth(D1 / 2 - 0.02, THREAD_D / 2, PITCH / 8, yt, ys)
     female = (body & cyl(big, yt, y1)) - cyl(D1 / 2, yt, ys) - groove - bell
-    info = {"y": (y0, yt, ys, y1), "d_bot": d_bot, "d_top": d_top, "arc": arc}
     return male, female, wall, info
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true", help="OCP Viewer に表示(ベルと一緒に、設計の座標で)")
+    ap.add_argument("--detail", action="store_true",
+                    help="オス・メスに分けてねじを付ける(既定は組み合わせた状態の外形だけ)")
     a = ap.parse_args()
 
     from bell03_surface import section_edges
 
-    male, female, wall, info = build()
+    male, female, wall, info = build(detail=a.detail)
     y0, yt, ys, y1 = info["y"]
+    if not a.detail:
+        bb = male.bounding_box()
+        print(f"bellscrew (outer shape only): solids {len(male.solids())} faces {len(male.faces())} "
+              f"valid {male.is_valid} volume {male.volume:.1f} mm3 y {bb.min.Y:.3f}..{bb.max.Y:.3f} "
+              f"D_max {bb.size.X:.3f}")
+        if a.show:
+            from ocp_vscode import Camera
+
+            from bope_claude_cad.viewer import show
+
+            show(wall, male, names=[f"bell03_wall_t{WALL}", "bellscrew"], colors=["#e0a020", "#3080e0"],
+                 alphas=[0.5, 1.0], reset_camera=Camera.KEEP, tab="tree",
+                 metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1)
+        return
     print(f"split y {ys:g}, ring y {y0:g}..{y1:g}, thread y {yt:g}..{ys:g} (M{THREAD_D:g}x{PITCH:g}, "
           f"D1 {D1:.3f}, d3 {D3:.3f}, clear {CLEAR} radial)")
     print(f"outer D: bottom {info['d_bot']:.3f}, top {info['d_top']:.3f}, arc R {ARC_R}")
