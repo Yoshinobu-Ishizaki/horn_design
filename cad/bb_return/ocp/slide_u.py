@@ -1,7 +1,7 @@
 """Bb の戻り回路の抜差部(Bb抜差組立のレベル): 第 4 の 1 階右下の枝管 v4-knuckle-f1-315(valve4_knuckle_F1_315_45deg_minusy)の出口から
 GAP mm 離して、Bb 第 2 の中管と同じ寸法の中管を同軸に置く(Bb2 とは連動しない独立の部品。長さは INNER_TUBE_LEN / --len で後から調整)。中管の先端(桂のない側)を枝管へ向ける。
 
-    uv run python cad/bb_return/ocp/bb_slide.py [--gap 1.0]
+    uv run python cad/bb_return/ocp/slide_u.py [--gap 1.0]
 """
 
 from __future__ import annotations

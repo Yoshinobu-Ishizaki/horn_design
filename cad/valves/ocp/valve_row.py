@@ -49,7 +49,11 @@ def place_unit(x0: float, knuckles: bool = True):
 STRAIGHT_TUBE_END = 17.5
 #   植込 → (置き換える枝管の名前、孔軸の角度[deg]、管の名前、孔軸の高さ z)
 #   第 1 の 2 階・右上(45°): 第 4 の 2 階・左上の孔と枝管をやめたので、まっすぐな管にする(2026-11-23 ユーザー指示)
-STRAIGHT_TUBES: dict = {"valve1": ("knuckle_L1_135", 45.0, "tube_F2_45", 34.0)}
+#   第 3 の 1 階・左上(ワールドの孔軸 135°、旧 knuckle_L2_45): 空いている枝管をまっすぐな管にする(2026-11-24 ユーザー指示)
+STRAIGHT_TUBES: dict = {
+    "valve1": [("knuckle_L1_135", 45.0, "tube_F2_45", 34.0)],
+    "valve3": [("knuckle_L2_45", 135.0, "tube_F1_135", 17.0)],
+}
 
 
 def _straight_tube_at(x0: float, angle: float, z: float = 17.0):
@@ -61,11 +65,11 @@ def build_row():
     for vname, x0 in VALVES.items():
         case, ks, names = place_unit(x0, vname not in NO_KNUCKLE)
         if vname in STRAIGHT_TUBES:
-            old, angle, new, z = STRAIGHT_TUBES[vname]
-            i = names.index(old)
             ks, names = list(ks), list(names)
-            ks[i] = _straight_tube_at(x0, angle, z)
-            names[i] = new
+            for old, angle, new, z in STRAIGHT_TUBES[vname]:
+                i = names.index(old)
+                ks[i] = _straight_tube_at(x0, angle, z)
+                names[i] = new
         out[vname] = (case, ks, [f"{vname}_{n}" for n in names])
     return out
 
