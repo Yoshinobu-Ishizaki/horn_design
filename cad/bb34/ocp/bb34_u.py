@@ -2,6 +2,7 @@
 
 - U 字の曲がりは基本の U 字管(cad/bows/ocp/ubows.py、直管 LEG = 5)と同じ。ピッチは下の条件で決まる。内径は ⌀12.0 一定、板厚はベルと同じ。
 - 出口の軸(-X)まわりに U を回して、もう一方の直線の軸が、水平面 z = 34 + RISE(= 49)に乗るようにする(ユーザー指示)。
+- U 字の浮いている端から、+X 方向にまっすぐな管をつなぐ。右側の端は x = X_END(= 25)。
 - 管体組立(cad/bellscrew/ocp/assy_with_valves.py)の hook で足す。座標は管体組立のワールド。
 - もう一方の直線の軸は、水平面 z = 34 + RISE(= 49)の上で、第 4 の 2 階左下(225°、ねじった枝管 valve4_knuckle_F2_225_twisted)の
   出口の軸を伸ばして z = 49 と交わる点(X, -37.553, 49)を通る(ユーザー指示)。ピッチ = hypot(Δy, RISE) ≒ 49.86、
@@ -26,6 +27,7 @@ sys.path[:0] = [str(HERE), str(ROOT / "cad/branch2/ocp"), str(ROOT / "cad/bellsc
 PITCH = None  # None なら、第 4 の枝管の出口の軸の延長の交点を通るように決める
 RISE = 15.0  # もう一方の直線の軸の高さ: 2 階の軸平面(z = 34)から +15
 D = 12.0
+X_END = 25.0  # U 字の浮いている端から +X へ伸ばす直線の管の、右側の端の x
 KNUCKLE = "valve3_knuckle_L1_45"  # 第 3 の 2 階・左上(ワールド 135°)
 
 
@@ -99,10 +101,23 @@ def main() -> None:
               f"axis offset {np.linalg.norm(perp):.3f}, y {q1[1]:.3f}, z {q1[2]:.3f} (target y {Q[1]:.3f}, z {pl['P0'][2] + rise:.3f})")
         tube = BP.apply(U.const_d_tube(w, D, BP.WALL), T)
         print(f"U tube D {D:g} valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
+        # 直線の管: U の浮いている端(向き +X)から x = X_END まで
+        from build123d import Edge, Wire
+
+        sx = np.array([q1[0], q1[1], q1[2]])
+        if abs(float(t1.X) - 1.0) > 1e-6:
+            raise ValueError(f"U の端の向きが +X でない: {t1}")
+        line = Wire([Edge.make_line(tuple(sx), (X_END, sx[1], sx[2]))])
+        straight = U.const_d_tube(line, D, BP.WALL)
+        print(f"straight tube: x {sx[0]:.3f} -> {X_END:g} at y {sx[1]:.3f}, z {sx[2]:.3f}; length {line.length:.3f}, valid {straight.is_valid}, "
+              f"volume {sum(x.volume for x in straight.solids()):.2f}")
         import branch2_l as B2
 
+        print("clearance (U):")
         B2.report_clearance(tube, others)
-        return branch, [tube, ww], ["bb34_U_wall", "bb34_U_centerline"], ["#e0a020", "#ff2020"]
+        print("clearance (straight):")
+        B2.report_clearance(straight, others)
+        return branch, [tube, straight, ww], ["bb34_U_wall", "bb34_straight_wall", "bb34_U_centerline"], ["#e0a020", "#e0a020", "#ff2020"]
 
     AW.main(hook=hook)
 
