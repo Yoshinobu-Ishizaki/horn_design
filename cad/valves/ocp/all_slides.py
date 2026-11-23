@@ -20,7 +20,7 @@ def collect():
     return out
 
 
-V4_NAMES = ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_135_45deg", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted",
+V4_NAMES = ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_mirrored_twisted",
             "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
 
 
@@ -31,9 +31,9 @@ def valve4_knuckles():
     import valve4_knuckle as V
 
     def build():
-        return [V.twisted_knuckle(), V.connect_knuckle(V.Z_F2), V.connect_knuckle(V.Z_F1), V.mirrored_twisted_knuckle(), V.twisted_knuckle_2f(), V.knuckle_2f_right()]
+        return [V.twisted_knuckle(), V.knuckle_2f_upper_right(), V.connect_knuckle(V.Z_F1), V.mirrored_twisted_knuckle(), V.twisted_knuckle_2f(), V.knuckle_2f_right()]
 
-    return cached("valve4_knuckles", "v1", Path(__file__).resolve().parent / "valve4_knuckle.py", build)
+    return cached("valve4_knuckles", "v2", Path(__file__).resolve().parent / "valve4_knuckle.py", build)
 
 
 def show_all(slides):
