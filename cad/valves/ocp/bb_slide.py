@@ -142,22 +142,27 @@ FER6 = 6.0  # 桂が頭管・中管にかぶる長さ(それぞれ。桂 L12)
 FER6_GAP = 1.0  # 桂の頭管側の端面と、直管の曲がり始めとの離れ
 
 
-def trimmed_bow(name, mirror=True, w=None):
+GAPS = {"b3bow": 3.4, "f3bow": 3.4}  # 胃袋形は、自分自身との表面最近接距離 3.4(頭管の方針)
+
+
+def trimmed_bow(name, mirror=True, w=None, joint_back=None, j=None):
+    """joint_back: 継ぎ目を曲がり始めから戻す量(既定 FER6+FER6_GAP = 7)。j: 切り詰め量(始点・終点から)を直接指定する(joint_back より優先)。"""
     from shape_cache import cached
 
-    return cached("trimmed_bow", (name, mirror, w), __file__, lambda: _trimmed_bow(name, mirror, w))
+    gap = GAPS.get(name)
+    return cached("trimmed_bow", (name, mirror, w, gap, joint_back, j), __file__, lambda: _trimmed_bow(name, mirror, w, gap, joint_back, j))
 
 
-def _trimmed_bow(name, mirror=True, w=None):
+def _trimmed_bow(name, mirror=True, w=None, gap=None, joint_back=None, j_fixed=None):
     """頭管 name の 2 本の直管を、継ぎ目が曲がり始めから FER6+FER6_GAP 手前になるまで切り詰める(短い方の直管で決める。2 本の継ぎ目は同じ y)。
     戻り値: (スライド座標のソリッド(継ぎ目 y=-j、直管の軸 x=±10)、切り詰め後の中心線の長さ、j(元の継ぎ目からの切り詰め量))。"""
     import bow_spline as B
     from build123d import Edge, Plane, Vector, Wire
     from build123d import mirror as b3d_mirror
 
-    cfg, v, ref, crv, wire = B.bow_curve(name, w or B.W_DEFAULT)
+    cfg, v, ref, crv, wire = B.bow_curve(name, w or B.W_DEFAULT, gap)
     a = B.analyze(cfg, v, ref, w or B.W_DEFAULT)
-    j = min(cfg.l_in, cfg.l_out) - (FER6 + FER6_GAP)
+    j = j_fixed if j_fixed is not None else min(cfg.l_in, cfg.l_out) - (FER6 + FER6_GAP if joint_back is None else joint_back)
     e2 = wire.edges()[1]
     e1 = Edge.make_line((cfg.start[0], cfg.start[1] - j, 0), (cfg.p0[0], cfg.p0[1], 0))
     e3 = Edge.make_line((cfg.p1[0], cfg.p1[1], 0), (cfg.end[0], cfg.end[1] - j, 0))
