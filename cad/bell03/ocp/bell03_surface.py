@@ -112,12 +112,33 @@ def read_ld(path: Path) -> tuple[np.ndarray, np.ndarray]:
     return a[:, 0], a[:, 1]
 
 
+def section_edges(shape, y: float) -> list:
+    """shape と平面 y = 値(法線 +Y)の交線のエッジ。"""
+    from build123d import Edge
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Section
+    from OCP.gp import gp_Dir, gp_Pln, gp_Pnt
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopoDS import TopoDS
+
+    sec = BRepAlgoAPI_Section(shape.wrapped, gp_Pln(gp_Pnt(0, y, 0), gp_Dir(0, 1, 0)))
+    sec.Build()
+    out, ex = [], TopExp_Explorer(sec.Shape(), TopAbs_EDGE)
+    while ex.More():
+        out.append(Edge(TopoDS.Edge(ex.Current())))
+        ex.Next()
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--show", action="store_true", help="OCP Viewer に表示")
     ap.add_argument("--step", action="store_true", help="output/bell03/ に STEP を出す")
     ap.add_argument("--wall", type=float, default=0.0, help="外向きの板厚 (mm)。0 はサーフェスだけ")
     ap.add_argument("--check", action="store_true", help="断面の直径誤差を測る(約 1 分かかる)")
+    ap.add_argument("--no-rot", action="store_true", help="組立姿勢に回さず、設計の座標(リム中心 (0,0)、直管部は +Y)で出す")
+    ap.add_argument("--section-y", type=float, action="append", default=[],
+                    help="設計の座標の平面 y = 値 とベルの交線を描く(モデルは切らない。複数可)")
     a = ap.parse_args()
 
     cl = centerline()
@@ -166,13 +187,28 @@ def main() -> None:
               f"branch1 faces {len(bwall.faces())} valid {bwall.is_valid}")
         shapes, names = [wall, bwall], [f"bell03_wall_t{a.wall}", f"bell03_branch1_wall_t{a.wall}"]
 
+    # 平面 y = 値(設計の座標)との交線。ベル(1番管を除く)の内径面と、板厚があれば外面も
+    sections = []
+    for y in a.section_y:
+        edges = section_edges(shapes[0], y)
+        sections.append((y, edges))
+        for e in edges:
+            bb = e.bounding_box()
+            print(f"section y={y:g}: {e.geom_type}, x {bb.min.X:.3f}..{bb.max.X:.3f} (width {bb.size.X:.3f}), "
+                  f"z {bb.min.Z:.3f}..{bb.max.Z:.3f}, length {e.length:.3f}")
+
     # 組立の基本姿勢に回す(リム中心 (0,0) まわり、Z 軸で ASSEMBLY_ROT_Z)
     from build123d import Circle, Pos, Rot
 
-    pose = Rot(0, 0, ASSEMBLY_ROT_Z)
+    pose = Rot(0, 0, 0 if a.no_rot else ASSEMBLY_ROT_Z)
     disk = pose * (Pos(g["c"][0], g["c"][1], 0) * Circle(g["ri"]).face())
     shell, bshell, cl, bcl = (pose * x for x in (shell, bshell, cl, bcl))
     shapes = [pose * x for x in shapes]
+    sec_shapes, sec_names = [], []
+    for y, edges in sections:
+        for i, e in enumerate(edges):
+            sec_shapes.append(pose * e)
+            sec_names.append(f"section_y{y:g}_{i}")
 
     if a.step:
         OUT.mkdir(parents=True, exist_ok=True)
@@ -189,10 +225,11 @@ def main() -> None:
         from bope_claude_cad.viewer import show
 
         show(
-            *shapes, cl, bcl, disk,
-            names=[*names, "bell03_centerline", "bell03_branch1_centerline", f"inner_disk_D{2 * g['ri']:.0f}"],
-            colors=[*colors, "#e02020", "#a000c0", "#30c050"],
-            alphas=[1.0, 1.0, 1.0, 1.0, 0.4],
+            *shapes, cl, bcl, disk, *sec_shapes,
+            names=[*names, "bell03_centerline", "bell03_branch1_centerline", f"inner_disk_D{2 * g['ri']:.0f}",
+                   *sec_names],
+            colors=[*colors, "#e02020", "#a000c0", "#30c050", *["#00a0ff"] * len(sec_shapes)],
+            alphas=[1.0, 1.0, 1.0, 1.0, 0.4, *[1.0] * len(sec_shapes)],
             reset_camera=Camera.KEEP,
             tab="tree",
             metalness=0.3, roughness=0.65, ambient_intensity=1.0, direct_intensity=1.1,
