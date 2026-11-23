@@ -166,7 +166,7 @@ def main() -> None:
     bcl = build_branch_wire()
     g = geometry()
     l0b = cl.length  # 1番管のメンズールは、ベルの芯線の実際の長さから
-    Lb = np.linspace(l0b, g["l_branch_end"], 401)
+    Lb = np.linspace(l0b, l0b + bcl.length, 401)  # 1番管は 2番管との接続点で切ってある(BRANCH_END_TRIM)
     Db = diameter(np.minimum(Lb, X_END))  # ⌀12 になった先(1番管の末端の直線の延長分)は ⌀12
     bshell, bprof = variable_pipe_law(bcl, Lb - l0b, Db)
     print(f"branch1: centerline {bcl.length:.3f}, D {Db[0]:.3f} -> {Db[-1]:.3f}, faces {len(bshell.faces())} "

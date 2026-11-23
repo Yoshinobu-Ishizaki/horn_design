@@ -43,7 +43,7 @@ def build_bell():
     bcl = build_branch_wire()
     g = geometry()
     l0b = cl.length
-    Lb = np.linspace(l0b, g["l_branch_end"], 401)
+    Lb = np.linspace(l0b, l0b + bcl.length, 401)  # 1番管は 2番管との接続点で切ってある(BRANCH_END_TRIM)
     Db = diameter(np.minimum(Lb, X_END))
     bwall, _ = variable_pipe_wall(bcl, Lb - l0b, Db, WALL, method="sweep")
     e = bcl.position_at(1.0)
