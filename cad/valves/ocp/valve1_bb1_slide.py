@@ -30,14 +30,14 @@ def main(mirror=True):
     from ocp_vscode import Camera
 
     from bope_claude_cad.viewer import show
-    from valve_row import build_row
+    from valve_row import build_row_cached
     import valve2_bb2_slide as V2
 
     parts, info, bow_len, j, d, need = build(mirror)
     print(f"第 1 抜差: {CENTS:g} セント ΔL = {need:.3f}。頭管 b1bow を継ぎ目 {j:g} mm だけ切り詰め、中心線 {bow_len:.3f}")
     print(f"中管 {L_TUBE:g}、外管 {info['outer_len']:g}、ちょうどの抜き量 d = {d:.3f} mm、継ぎ目 y={info['y_b']:.3f}")
     parts2, info2, L2, d2 = V2.build()
-    row = build_row()
+    row = build_row_cached()
     case, ks, names = row[VALVE]
     case2, ks2, names2 = row["valve2"]
     show(case, *ks, case2, *ks2, *parts.values(), *parts2.values(),

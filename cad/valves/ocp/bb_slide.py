@@ -143,6 +143,12 @@ FER6_GAP = 1.0  # 桂の頭管側の端面と、直管の曲がり始めとの�
 
 
 def trimmed_bow(name, mirror=True, w=None):
+    from shape_cache import cached
+
+    return cached("trimmed_bow", (name, mirror, w), __file__, lambda: _trimmed_bow(name, mirror, w))
+
+
+def _trimmed_bow(name, mirror=True, w=None):
     """頭管 name の 2 本の直管を、継ぎ目が曲がり始めから FER6+FER6_GAP 手前になるまで切り詰める(短い方の直管で決める。2 本の継ぎ目は同じ y)。
     戻り値: (スライド座標のソリッド(継ぎ目 y=-j、直管の軸 x=±10)、切り詰め後の中心線の長さ、j(元の継ぎ目からの切り詰め量))。"""
     import bow_spline as B

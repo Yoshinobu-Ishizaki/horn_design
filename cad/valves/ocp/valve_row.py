@@ -68,6 +68,13 @@ def build_row():
     return out
 
 
+def build_row_cached():
+    """build_row() の結果を、ソースが変わっていなければ output/cache/ から読み込む(約 5 秒 → 1 秒未満)。"""
+    from shape_cache import cached
+
+    return cached("valve_row", sorted(VALVES.items()), __file__, build_row)
+
+
 def main():
     from ocp_vscode import Camera
 

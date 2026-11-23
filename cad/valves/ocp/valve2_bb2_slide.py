@@ -43,7 +43,7 @@ def main():
     from ocp_vscode import Camera
 
     from bope_claude_cad.viewer import show
-    from valve_row import build_row
+    from valve_row import build_row_cached
 
     dl, l_exact, L, d = design()
     print(f"全長 {S.BB_LENGTH} mm の {CENTS:g} セント: ΔL = {dl:.3f} mm")
@@ -51,7 +51,7 @@ def main():
     print(f"L = {L:.1f} で、ちょうど {CENTS:g} セントになる抜き量 d = {d:.3f} mm(d = {D_NOMINAL:g} のときは {S.cents_of(L, D_NOMINAL, BOW_LEN):.2f} セント)")
     print(f"  迂回で増える長さ = 2·{S.K_KNUCKLE:.3f} + 2·({S.G_GAP:g} + {d:.3f} + {L:.1f}) + {BOW_LEN:.3f} = {S.extra(L, d, BOW_LEN):.3f} (= ΔL)")
     parts, info, L, d = build(L, d)
-    row = build_row()
+    row = build_row_cached()
     case, ks, names = row[VALVE]
     show(case, *ks, *parts.values(), names=[f"{VALVE}_case"] + names + [f"slide2_{k}" for k in parts], reset_camera=Camera.KEEP)
     if "--check" in sys.argv:  # 干渉・距離の確認は遅い(2 分以上)ので、指定したときだけ
