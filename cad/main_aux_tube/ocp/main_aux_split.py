@@ -26,6 +26,8 @@ sys.path[:0] = [str(HERE), str(ROOT / "cad/bb34/ocp"), str(ROOT / "cad/branch2/o
 
 from main_aux import D, GAP_REQ, R_MIN, tess_world  # noqa: E402,F401
 
+# 手元の探索(tools/split_search.py、種 1。範囲 ±45 mm・全方向、隙間 ≥ 0.3 を重く)の結果 y = (P_m, θ, φ)。--search を付けると、この場で探索し直す
+PRESET = [72.486, -52.791, 75.196, 1.21, 1.21]
 STRAIGHT_SPLIT = 4.0  # 分割点の前後の直線部
 STRAIGHT_E = 4.0  # E 側の直線部の下限
 STRAIGHT_END = 5.0  # 終端側の直線部の下限
@@ -156,11 +158,17 @@ def hook(M, branch, others):
                 continue
             pts += MA.tess_world(sh, 0.15)
         tree = cKDTree(np.array(pts))
+        if "--dump" in sys.argv:  # 手元で探索を繰り返すための保存(障害物の頂点・基準の芯線)
+            np.save("/tmp/claude-1000/split_obs.npy", np.array(pts))
+            np.save("/tmp/claude-1000/split_ref.npy", ref)
         x, c, cp = solve(E, u, S_end, tS, ref, tree, r_min, gap_req)
         return x + [c, cp]
 
-    sol = cached("main_aux_split", [round(float(v), 4) for v in [*E, *S_end, r_min, gap_req, STRAIGHT_SPLIT, STRAIGHT_E, STRAIGHT_END]] + [len(others)],
-                 Path(__file__), build_solution)
+    if "--search" not in sys.argv:
+        sol = list(PRESET) + [0.0, 0.0]
+    else:
+        sol = cached("main_aux_split", [round(float(v), 4) for v in [*E, *S_end, r_min, gap_req, STRAIGHT_SPLIT, STRAIGHT_E, STRAIGHT_END]] + [len(others), "--dump" in sys.argv],
+                     Path(__file__), build_solution)
     x = sol[:5]
     Pm, tm, p1, p2 = build(x, E, u, S_end, tS)
     print(f"solution y(P_m, θ, φ) = {np.round(x, 4).tolist()}, cost {sol[5]:.3f}, line-intersection residual {sol[6]:.2e}")
