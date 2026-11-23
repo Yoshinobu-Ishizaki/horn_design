@@ -48,6 +48,22 @@ def u_wire_local(pitch):
     return Wire([Edge.make_line((-p / 2, 0, 0), (-p / 2, leg, 0)), e2, Edge.make_line((p / 2, leg, 0), (p / 2, 0, 0))]), info
 
 
+def const_d_tube(w, d, wall):
+    """芯線 w(直線とスプラインの Wire)に沿う、内径 d 一定・板厚 wall の管。辺ごとに掃引してコンパウンドにする
+    (スプラインはフレネ。合体(+)は曲がり部が落ちるので使わない)。"""
+    from build123d import Compound, Wire
+
+    from bope_claude_cad.vss import variable_pipe_wall
+
+    walls = []
+    for e in w.edges():
+        ss = np.linspace(0, e.length, 101)
+        kw = {} if e.geom_type.name == "LINE" else {"binormal": "frenet"}
+        wl, _ = variable_pipe_wall(Wire([e]), ss, np.full_like(ss, d), wall, method="sweep", **kw)
+        walls.append(wl)
+    return Compound(walls)
+
+
 def placement(M, pitch=PITCH):
     """U の置き方: 左の直線の始端を第 4 の出口に、局所 +Y を出口の軸に、局所 +X(もう一方の直線への向き)を n に。
     n は出口の軸に垂直で、もう一方の直線(出口 + pitch·n を通り、出口の軸に平行)がベルの芯線の平面に乗る向き。"""
@@ -116,21 +132,8 @@ def main() -> None:
               f"(D 12 at L {X_END:g}: {total - X_END:+.3f})")
         # 2番管の管: 内径は ⌀12.0 一定(ユーザー指示。音程への影響は小さい見込み。全体が完成したら音程を確認する)、板厚 BP.WALL。
         # 直線とスプラインを別に掃引してつなぐ(スプラインはフレネ)。出口(s = 0)から、1番管との接続点へ。
-        from build123d import Wire
-
-        from bope_claude_cad.vss import variable_pipe_wall
-        walls, s_at = [], 0.0
         D2 = 12.0
-        for e in w.edges():
-            ss = np.linspace(0, e.length, 101)
-            dd = np.full_like(ss, D2)
-            kw = {} if e.geom_type.name == "LINE" else {"binormal": "frenet"}
-            wall, _ = variable_pipe_wall(Wire([e]), ss, dd, BP.WALL, method="sweep", **kw)
-            walls.append(wall)  # 合体(+)は曲がり部が落ちるので、コンパウンドにする
-            s_at += e.length
-        from build123d import Compound
-
-        tube = BP.apply(Compound(walls), T)
+        tube = BP.apply(const_d_tube(w, D2, BP.WALL), T)
         print(f"branch2 tube: D {D2:g} constant (branch1 end D at the joint is 12.246), valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
         import branch2_l as B2
 
