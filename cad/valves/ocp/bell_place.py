@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT / "cad" / "bell03" / "tools"))
 sys.path.insert(0, str(ROOT / "cad" / "bell03" / "ocp"))
 
 WALL = 0.4
+TILT_DEG = 5.0  # ベル芯線の +Y の最高点の接線(X 方向)まわりに、+X 側から見て時計回りに回す角度(ユーザー指示。0 なら回さない)
 
 
 def build_bell():
@@ -104,6 +105,34 @@ def placed_manual(B=-60.0, C=50.0, x=5.0):
     return apply(info["bell"], M), apply(info["branch"], M), M, np.array([x, B, C])
 
 
+def tilt_about_top_tangent(M, deg):
+    """ベル芯線の +Y の最高点(そこの接線は X 方向)を通る X 軸に平行な直線を回転軸に、ベルと 1番管をまとめて回す。
+    deg > 0 は、+X 側から見て時計回り(= X 軸まわりの右ねじの回転で -deg)。戻り値: (M2, 回転軸が通る点)。"""
+    import bell03_surface as BS
+
+    cl = BS.centerline()
+    ts = np.linspace(0, 1, 6001)
+    pts = np.array([[v.X, v.Y, v.Z] for v in (cl.position_at(t) for t in ts)])
+    pw = (M[:3, :3] @ pts.T).T + M[:3, 3]
+    i = int(np.argmax(pw[:, 1]))
+    lo, hi = ts[max(i - 1, 0)], ts[min(i + 1, len(ts) - 1)]
+    for _ in range(40):  # 最高点を細かく探す(黄金分割)
+        a, b = lo + (hi - lo) / 3, hi - (hi - lo) / 3
+        ya = (M[:3, :3] @ np.array(list(cl.position_at(a)))) [1] + M[1, 3]
+        yb = (M[:3, :3] @ np.array(list(cl.position_at(b)))) [1] + M[1, 3]
+        lo, hi = (a, hi) if ya < yb else (lo, b)
+    t = (lo + hi) / 2
+    p0 = np.array(list(cl.position_at(t)))
+    pw0 = M[:3, :3] @ p0 + M[:3, 3]
+    tw = M[:3, :3] @ np.array(list(cl.tangent_at(t)))
+    th = math.radians(-deg)
+    Rx = np.array([[1, 0, 0], [0, math.cos(th), -math.sin(th)], [0, math.sin(th), math.cos(th)]])
+    T = np.eye(4)
+    T[:3, :3] = Rx
+    T[:3, 3] = pw0 - Rx @ pw0
+    return T @ M, pw0, tw
+
+
 def placed(side="plus"):
     from shape_cache import cached
 
@@ -128,6 +157,14 @@ def main():
         X, B, C = arg("--X", 5.0), arg("--B", -60.0), arg("--C", 50.0)
         bell, branch, M, ctr = placed_manual(B, C, X)
         print(f"曲げ内側の円の中心 = {np.round(ctr, 3)}(姿勢: Z 軸まわり +15°)")
+        deg = arg("--tilt", TILT_DEG)
+        if deg:
+            from shape_cache import cached
+
+            info = cached("bell03_walls", WALL, ROOT / "cad" / "bell03" / "ocp" / "bell03_surface.py", build_bell)
+            M2, pv, tw = tilt_about_top_tangent(M, deg)
+            bell, branch = apply(info["bell"], M2), apply(info["branch"], M2)
+            print(f"ベル芯線の +Y の最高点 {np.round(pv, 3)}(接線 {np.round(tw, 4)})を通る X 軸方向の直線まわりに、+X 側から見て時計回りに {deg:g}° 回した")
     bb = bell.bounding_box()
     b2 = branch.bounding_box()
     print(f"ベル x[{bb.min.X:.1f},{bb.max.X:.1f}] y[{bb.min.Y:.1f},{bb.max.Y:.1f}] z[{bb.min.Z:.1f},{bb.max.Z:.1f}]  1番管 x[{b2.min.X:.1f},{b2.max.X:.1f}] y[{b2.min.Y:.1f},{b2.max.Y:.1f}] z[{b2.min.Z:.1f},{b2.max.Z:.1f}]")
