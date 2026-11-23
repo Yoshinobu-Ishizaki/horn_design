@@ -7,7 +7,11 @@ cad/valves のファイルは直さず、関数を借りる。
 `--pull Bb3,F3 --tip -10`: 抜差を抜いた状態で出す(cad/valves/ocp/pullout_check.py と同じ決め方)。中管の先端が、
 外管の開いた端から --tip mm の所まで(負なら外へ出る。-10 で完全に抜けて 10 mm 離れる)。中管・桂・頭管を -Y へ動かす。
 
+`--mark-d12`: 1番管の内径が ⌀12.00 になる位置(メンズールの X_END。今は 1番管の末端)に、内径の円(⌀12)と
+外面の円(⌀12 + 2·板厚)を描く。
+
     uv run python cad/bellscrew/ocp/assy_with_valves.py [--X 5] [--B -60] [--C 50] [--tilt 4.5] [--pull Bb3,F3 --tip -10]
+        [--mark-d12]
 """
 
 from __future__ import annotations
@@ -70,7 +74,41 @@ def main() -> None:
         names += [f"{tag}_{k}" for k in p]
     parts += [bell, branch, screw]
     names += ["bell03_bell_wall", "bell03_branch1_wall", "bellscrew"]
-    show(*parts, names=names, reset_camera=Camera.KEEP)
+    colors = [None] * len(parts)
+    if "--mark-d12" in sys.argv:
+        circles, cnames = d12_circles(M, BP.WALL)
+        parts += circles
+        names += cnames
+        colors += ["#00c0ff"] * len(circles)
+    show(*parts, names=names, colors=colors, reset_camera=Camera.KEEP)
+
+
+def d12_circles(M, wall):
+    """1番管の内径が ⌀12.00 になる位置(芯線の上)の、芯線に垂直な円(内径と外面)。M は組立の変換。"""
+    import bell_place as BP
+    import numpy as np
+    from build123d import Edge, Plane
+
+    sys.path.insert(0, str(ROOT / "cad/bell03/tools"))
+    from make_centerline import build_branch_wire, geometry
+    from make_mensur import X_END, diameter
+
+    import bell03_surface as BS
+
+    bcl = build_branch_wire()
+    s = X_END - BS.centerline().length  # 1番管の芯線に沿った距離
+    u = min(s / bcl.length, 1.0)
+    p, t = bcl.position_at(u), bcl.tangent_at(u)
+    d = float(diameter(X_END))
+    print(f"D 12 point: branch1 s {s:.3f} of {bcl.length:.3f} (L {X_END:g}, D {d:.4f}, "
+          f"l_branch_end {geometry()['l_branch_end']:g})")
+    out = []
+    for r in (d / 2, d / 2 + wall):
+        out.append(BP.apply(Edge.make_circle(r, Plane(origin=p, z_dir=t)), M))
+    c = M[:3, :3] @ np.array([p.X, p.Y, p.Z]) + M[:3, 3]
+    tw = M[:3, :3] @ np.array([t.X, t.Y, t.Z])
+    print(f"  assembly: centre ({c[0]:.3f}, {c[1]:.3f}, {c[2]:.3f}), axis ({tw[0]:.4f}, {tw[1]:.4f}, {tw[2]:.4f})")
+    return out, ["branch1_D12_bore", f"branch1_D12_outer_D{d + 2 * wall:.1f}"]
 
 
 if __name__ == "__main__":
