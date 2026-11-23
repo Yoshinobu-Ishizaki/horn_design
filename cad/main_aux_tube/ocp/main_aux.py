@@ -25,8 +25,11 @@ sys.path[:0] = [str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valves/ocp"), s
 X_P1 = 87.5
 OFFSET = 10.0
 Y_S = -40.0
+STRAIGHT = 4.0  # E(枝管の出口)につながる、芯線の直線部の長さ(以上)
+X_S = 92.0  # 端点 S の x(P1 の x=87.5 から +X へ延ばして、右側の端点への曲がりを緩やかにする)
 D = 12.0
-R_MIN = 8.0  # 軸線の最小曲げ半径の下限(外面の半径 6.4 より十分大きく)
+R_MIN = 10.0  # 軸線の最小曲げ半径の下限(外面の半径 6.4 より十分大きく)
+ANGLE = 5.0  # P1(YZ)に投影した芯線の、S へ入る側の向きと (0,0,-1) のなす角(deg)。S から +Y 側へ傾いて下がる
 GAP_REQ = 0.3  # 1番管などとの表面距離の下限(0 以上が条件。サンプリング誤差の余裕)
 FIT_Y = (-175.0, 60.0)  # 近似に使う Y の範囲(ベルのリム端の立ち上がりを除く)
 BIN = 4.0
@@ -165,10 +168,10 @@ def aux_hook(M, branch, others):
     nrm = np.array([0.0, -a, 1.0]) / math.sqrt(1 + a * a)
     b2 = b + off * math.sqrt(1 + a * a)
     print(f"P2: plane through the fit line offset {off:g} along its +Z normal {nrm.round(4).tolist()}; on P1: z = {a:.5f} y + {b2:.4f}")
-    S = np.array([x1, ys_, a * ys_ + b2])
+    S = np.array([arg("--xs", X_S), ys_, a * ys_ + b2])  # 端点は P2 上で、x だけ X_S へ延ばす(P1 の上の点から +X へ)
     tS = np.array([1.0, 0.0, 0.0])
     E, u = f1_225_exit()
-    print(f"S (P1 ∩ P2, y {ys_:g}) = {S.round(3).tolist()}, direction (1, 0, 0)")
+    print(f"S (on P2, y {ys_:g}, x extended to {S[0]:g}) = {S.round(3).tolist()}, direction (1, 0, 0)")
     print(f"E (valve4 F1-225 exit) = {E.round(3).tolist()}, outward axis {u.round(4).tolist()}")
     from scipy.spatial import cKDTree
 
@@ -188,7 +191,7 @@ def aux_hook(M, branch, others):
         d, i_ = tree.query(C[4:])  # 始点のごく近く(つなぐ枝管)は除く
         return d.min() - D / 2 - 0.4, lab[int(i_[int(np.argmin(d))])]
 
-    # 5 次ベジェ(制御点 6 つ): E, E + a·u, P2, P3, S − b·(1,0,0), S。a, b, P2, P3(計 8 変数)を、差分進化で決める。
+    # 直線部(E → E2 = E + STRAIGHT·u)+ 5 次ベジェ(制御点 6 つ): E2, E2 + a·u, P2, P3, S − b·(1,0,0), S。a, b, P2, P3(計 8 変数)を、差分進化で決める。
     # 条件: 軸と他の部品の頂点の距離から出した隙間 ≥ GAP_REQ、最小曲げ半径 ≥ R_MIN。そのうえで長さを短く。
     from scipy.optimize import differential_evolution
 
@@ -198,8 +201,12 @@ def aux_hook(M, branch, others):
     Bm = np.array([[comb(5, k) * t**k * (1 - t) ** (5 - k) for k in range(6)] for t in tt6])
     gap_req, r_min_req = arg("--gap", GAP_REQ), arg("--rmin", R_MIN)
 
+    E2 = E + arg("--straight", STRAIGHT) * u  # 直線部の終わり = ベジェの始点
+
     def ctrl(x):
-        return np.array([E, E + x[0] * u, x[2:5], x[5:8], S - x[1] * tS, S])
+        th = math.radians(arg("--angle", ANGLE))
+        P3 = np.array([x[5], S[1] + x[6] * math.sin(th), S[2] - x[6] * math.cos(th)])  # 投影で S から (sinθ, -cosθ) の向きの線の上
+        return np.array([E2, E2 + x[0] * u, x[2:5], P3, S - x[1] * tS, S])
 
     def evaluate(x):
         Pc = ctrl(x)
@@ -217,13 +224,14 @@ def aux_hook(M, branch, others):
 
     lo = np.minimum(E, S) - 25
     hi = np.maximum(E, S) + 25
-    bounds = [(1, 120), (1, 120)] + list(zip(lo, hi)) + list(zip(lo, hi))
+    lo[0] = 40
+    bounds = [(1, 120), (1, 120)] + list(zip(lo, hi)) + [(lo[0], hi[0]), (5, 90)]
     res = differential_evolution(cost, bounds, seed=1, popsize=25, maxiter=400, tol=1e-8, polish=False)
     g, rmin, ln, nm = evaluate(res.x)
-    print(f"quintic Bezier E -> S: gap {g:.3f} ({nm}), min bend R {rmin:.2f}, length {ln:.2f} (cost {res.fun:.2f}); a, b = {res.x[0]:.1f}, {res.x[1]:.1f}")
+    print(f"straight {arg('--straight', STRAIGHT):g} from E + quintic Bezier -> S: gap {g:.3f} ({nm}), min bend R {rmin:.2f}, length {ln:.2f} (cost {res.fun:.2f}); a, b = {res.x[0]:.1f}, {res.x[1]:.1f}")
     Pc = ctrl(res.x)
     print(f"  control points: {Pc.round(2).tolist()}")
-    w = Wire([Edge.make_bezier(*[Vector(*p) for p in Pc])])
+    w = Wire([Edge.make_line(Vector(*E), Vector(*E2)), Edge.make_bezier(*[Vector(*p) for p in Pc])])
     print(f"axis length {w.length:.3f}")
     ends = [w.position_at(0.0), w.position_at(1.0)]
     t0, t1 = w.tangent_at(0.0), w.tangent_at(1.0)
