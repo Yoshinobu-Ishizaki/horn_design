@@ -159,9 +159,10 @@ def cut_ab(ab, sigma_turn):
     return out
 
 
-def solve_route(gain, tau_q, sigma_max=420.0, r_floor=None):
+def solve_route(gain, tau_q, sigma_max=420.0, straight_end=30.0):
     """1番管の長さ(ベルの終点から、直線上の点 τ_q まで)が、今の 1番管より gain だけ長くなる道筋。
-    変数は SIGMA_TURN・C の a・b・接続点 τ1(≤ τ_q - 5)。C の最小曲げ半径が最大になるように選ぶ。"""
+    変数は SIGMA_TURN・C の a・b・接続点 τ1。細い端に、長さ straight_end 以上の横の直線を必ず残す(τ1 ≤ τ_q - straight_end)。
+    C の最小曲げ半径が最大になるように選ぶ。"""
     from scipy.optimize import minimize
 
     ab0 = segment_ab(sigma_max)
@@ -174,7 +175,7 @@ def solve_route(gain, tau_q, sigma_max=420.0, r_floor=None):
 
     def evaluate(x, n=401):
         st, a, b, tau1 = x
-        if not (ab0["sig0"] + 2 < st < sigma_max - 2) or a <= 1 or b <= 1 or tau1 > tau_q - 5 or tau1 < -50:
+        if not (ab0["sig0"] + 2 < st < sigma_max - 2) or a <= 1 or b <= 1 or tau1 > tau_q - straight_end or tau1 < -80:
             return None
         ab = cut_ab(ab0, st)
         _, pc = bezier_c(ab["pts"][-1], ab["t_end"], ab["k_end"], l0 + tau1 * u, u, a, b, n)
@@ -188,8 +189,11 @@ def solve_route(gain, tau_q, sigma_max=420.0, r_floor=None):
         if e is None:
             return 1e6
         _, _, length, r, gap = e
-        return -r + 2.0 * (length - target) ** 2 + 100.0 * max(0.0, GAP - gap) ** 2
-    starts = [(st, a, b, t) for st in (260, 300, 340) for a, b, t in ((40, 20, 0.5 * tau_q), (60, 30, 0.8 * tau_q))]
+        # 長さは target 以上を強く(足りない分は 1 mm で 1000)、超える分は弱く罰する
+        return -r + 1000.0 * max(0.0, target - length) ** 2 + 0.5 * max(0.0, length - target) ** 2 \
+            + 100.0 * max(0.0, GAP - gap) ** 2
+    t_hi = tau_q - straight_end
+    starts = [(st, a, b, t) for st in (270, 310, 350) for a, b, t in ((40, 20, t_hi - 20), (60, 30, t_hi - 2))]
     best = min((minimize(f, x0, method="Nelder-Mead", options={"xatol": 1e-3, "fatol": 1e-6, "maxiter": 6000})
                 for x0 in starts), key=lambda r: r.fun)
     ab, pc, length, r, gap = evaluate(best.x, n=2001)

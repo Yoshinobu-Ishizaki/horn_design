@@ -21,7 +21,9 @@ ROOT = HERE.parents[2]
 sys.path[:0] = [str(HERE), str(ROOT / "cad/branch2/tools"), str(ROOT / "cad/bellscrew/ocp"),
                 str(ROOT / "cad/valves/ocp"), str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
-MARGIN = 2.0  # リムから第 4 の出口までの長さを、今の 1番管(L = X_END)より長くする量 (mm)。この分が ⌀12 の直管
+MARGIN = 4.5  # リムから第 4 の出口までの長さを、L = X_END(⌀12 になる所)より長くする量 (mm)。この分が 2番管の出口側の
+# ⌀12 の直管(ユーザー指示: 最低 4 mm。最適化の誤差のぶん 0.5 足す)
+STRAIGHT_END = 30.0  # 1番管の細い端(2番管との接続点の手前)に必ず残す横の直線 (mm)。あとで調整
 
 
 def branch1_wire(r):
@@ -63,7 +65,9 @@ def main() -> None:
 
         # 2番管
         tree = B2.obstacle_tree(others, M)
-        d = B2.design(M, cut, tree)
+        def r_of_s(sl):  # 2番管の外半径(出口からの長さ)。リム→出口を X_END + MARGIN とみなす
+            return diameter(np.minimum(X_END + MARGIN - sl, X_END)) / 2 + BP.WALL
+        d = B2.design(M, cut, tree, r_of_s)
         edges2 = B2.centerline_edges(d)
         len2 = sum(e.length for e in edges2)
         # 1番管: 直線上の点 Q の τ(設計の座標で、今の直線の始点から)
@@ -74,9 +78,15 @@ def main() -> None:
         tau_end = float((np.array([e_d.X, e_d.Y]) - l0) @ u)
         tau_q = tau_end - cut
         need = old.length - ((old.length - cut) + len2) + MARGIN  # 今の 1番管より長くする量
-        r = R.solve_route(need, tau_q)
-        w1 = branch1_wire(r)
         l0b = BS.centerline().length
+        for _ in range(3):  # 道筋の最適化の中の長さ(点列)と、実際の芯線の長さの差を、目標から差し引いて解き直す
+            r = R.solve_route(need, tau_q, straight_end=STRAIGHT_END)
+            w1 = branch1_wire(r)
+            err = (l0b + w1.length + len2) - (X_END + MARGIN)
+            print(f"  route: rim -> exit {l0b + w1.length + len2:.3f} (target {X_END + MARGIN:.3f}, err {err:+.3f})")
+            if abs(err) < 0.2:
+                break
+            need -= err
         Lb = np.linspace(0, w1.length, 401)
         Db = diameter(np.minimum(l0b + Lb, X_END))
         wall1, _ = variable_pipe_wall(w1, Lb, Db, BP.WALL, method="sweep")
@@ -101,8 +111,17 @@ def main() -> None:
               f"branch1 D end {float(Db[-1]):.3f}, branch2 D {D2[-1]:.3f} (at Q) -> {D2[0]:.3f} (at exit)")
         print(f"branch1 wall valid {wall1.is_valid}, branch2 tube valid {tube2.is_valid}")
         wall1w = BP.apply(wall1, M)
-        bell = dict(others)["bell03_bell_wall"]
-        print(f"clearance new branch1 - bell (3D): {wall1w.distance_to(bell):.3f} mm")
+        # 1番管とベルの隙間: bell03_surface.clearance と同じ測り方(平面の輪郭、継ぎ目の近く 60 mm は除く)
+        cl = BS.centerline()
+        L, Dt = BS.read_ld(BS.LD_CSV)
+        from bope_claude_cad.vss import fit_profile
+
+        prof = fit_profile(L, Dt, cl.length)
+        bprof = fit_profile(Lb, Db, w1.length)
+        gap, where = BS.clearance(cl, prof, w1, bprof, wall=BP.WALL)
+        print(f"clearance new branch1 - bell (outer surfaces, joint 60 mm excluded): {gap:.3f} mm at "
+              f"({where[0]:.1f}, {where[1]:.1f}) (design coords)")
+        print(f"branch1 straight before Q: {tau_q - r['tau1']:.2f} mm")
         B2.report_clearance(tube2, others)
         return wall1w, [tube2, BP.apply(w1, M)], ["branch2_wall", "branch1_new_centerline"], ["#20c0a0", "#ff2020"]
 

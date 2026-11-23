@@ -126,11 +126,12 @@ def obstacle_tree(others, M, step=0.5, reach=20.0):
     return cKDTree(np.vstack(pts))
 
 
-def design(M, cut, tree=None):
+def design(M, cut, tree=None, r_of_s=None):
     """2番管の芯線: 出口から軸 u = (0, -b, c) に沿って S0 だけ直線(近くの外管に寄らないように)、そこから 5 次ベジエで
     -x へ曲がって、1番管の横の直線の点 Q(末端から cut 戻った所)へ、-X の向きで入る(両端 G2)。
     S0・a・b を、最小曲げ半径が最大になるように選ぶ。tree があれば、ほかの部品との隙間 GAP を守る
-    (芯線から点群までの距離 - 外半径 を隙間の概算にする)。"""
+    (芯線から点群までの距離 - 外半径 を隙間の概算にする)。r_of_s(出口からの芯線の長さ → 外半径)を渡すと、
+    メンズールで太くなる分も入れる(既定は ⌀12 + 板厚 で一定)。"""
     from scipy.optimize import minimize
 
     P, u = knuckle_exit()
@@ -138,8 +139,13 @@ def design(M, cut, tree=None):
     Q = E - cut * t
     ro = ID / 2 + WALL
 
-    def gap(pts):
-        return float(tree.query(pts)[0].min()) - ro if tree is not None else np.inf
+    def gap(pts, s0=0.0):
+        if tree is None:
+            return np.inf
+        if r_of_s is None:
+            return float(tree.query(pts)[0].min()) - ro
+        sl = s0 + np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))])
+        return float((tree.query(pts)[0] - r_of_s(sl)).min())
 
     def curve(x, n):
         s0, a, b = x
@@ -153,7 +159,7 @@ def design(M, cut, tree=None):
         if s0 < 0 or a < 1 or b < 1:
             return 1e6
         _, pts, line = curve(x, 801)
-        g = min(gap(pts), gap(line[2:])) if len(line) > 2 else gap(pts[8:])
+        g = min(gap(pts, s0), gap(line[2:], 0.0)) if len(line) > 2 else gap(pts[8:], s0)
         pen = max(0.0, GAP + GAP_MARGIN - g)
         return -min(radius_min(pts)[0], 200.0) + 1e3 * pen
     best = min((minimize(f, x0, method="Nelder-Mead", options={"xatol": 1e-3, "fatol": 1e-4, "maxiter": 3000})
@@ -162,7 +168,7 @@ def design(M, cut, tree=None):
     cp, pts, line = curve(best.x, 4001)
     r, i = radius_min(pts)
     return dict(P=P, u=u, Q=Q, t=t, E=E, s0=s0, a=a, b=b, cp=cp, pts=pts, r_min=r, r_at=pts[i],
-                gap_est=min(gap(pts), gap(line[2:]) if len(line) > 2 else np.inf), ok=best.fun < 1e2,
+                gap_est=min(gap(pts, s0), gap(line[2:]) if len(line) > 2 else np.inf), ok=best.fun < 1e2,
                 length=s0 + float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum()))
 
 
