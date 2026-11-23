@@ -25,13 +25,15 @@ from pathlib import Path
 
 EXT_GLOB = "bernhard-42.ocp-cad-viewer-*"
 REL = Path("node_modules/three-cad-viewer/dist/three-cad-viewer.esm.js")
-MARK_OLD = "PATCH(local): hover name - prefix"  # 旧版(部品名だけ)。見つけたら .orig から作り直す
-MARK = "PATCH(local): hover name+id"
+# 旧版。見つけたら .orig から作り直す: 部品名だけの版と、引数を 3 つしか渡さない版(three-cad-viewer の新しい版では
+# hoverStatusText(info, fromSolid, provider, t) と 4 つ目に翻訳関数 t があり、渡さないと t(...) で落ちて、ホバーの行が何も出なくなった)
+MARKS_OLD = ("PATCH(local): hover name - prefix", "PATCH(local): hover name+id - ")
+MARK = "PATCH(local): hover name+id v2"
 ORIG_DEF = "function hoverStatusText("
 RENAMED_DEF = "function hoverStatusTextOrig("
 WRAPPER = f"""// {MARK} - prefix the hover status line with the part name and, for a face/edge/vertex, its id (e.g. faces_6).
-function hoverStatusText(info, fromSolid, provider) {{
-    const t = hoverStatusTextOrig(info, fromSolid, provider);
+function hoverStatusText(info, fromSolid, ...rest) {{
+    const t = hoverStatusTextOrig(info, fromSolid, ...rest);
     const solid = fromSolid && info.solidPath != null;
     const p = solid ? info.solidPath : String(info.path).replace(/\\/(faces|edges|vertices)\\/[^/]+$/, "");
     const name = p.split("/").filter(Boolean).pop() || "";
@@ -60,7 +62,7 @@ def apply(path: Path) -> int:
     if is_patched(text):
         print(f"パッチ済み: {path}")
         return 0
-    if MARK_OLD in text:  # 旧版(部品名だけ)を、バックアップから戻して新版を当て直す
+    if any(m in text for m in MARKS_OLD):  # 旧版を、バックアップから戻して新版を当て直す
         orig = path.with_name(path.name + ".orig")
         if not orig.exists():
             print(f"旧版のパッチだが、バックアップが無い: {orig}", file=sys.stderr)
