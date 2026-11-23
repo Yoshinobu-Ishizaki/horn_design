@@ -67,19 +67,20 @@ def cents_of(L, d, bow_len, length=BB_LENGTH):
     return 1200.0 * math.log2(1.0 + extra(L, d, bow_len) / length)
 
 
-def slide_parts(x_c, bow_slide, L, d, s_in=S_IN, bead_on="bow"):
+def slide_parts(x_c, bow_slide, L, d, s_in=S_IN, bead_on="bow", ferrule_l=FERRULE_L):
     """抜差の部品(dict)。x_c: 植込みの x。bow_slide: スライド座標の頭管(継ぎ目 y=0、本体 -Y、直管の軸 x=±10)。"""
-    y_c = Y_STUB - G_GAP - L + FERRULE_ON_TUBE  # 外管のつばの面
+    on_tube = ferrule_l - FERRULE_ON_BOW
+    y_c = Y_STUB - G_GAP - L + on_tube  # 外管のつばの面
     outer_len = (Y_STUB + s_in) - y_c
-    y_b = y_c - FERRULE_ON_TUBE - d  # 頭管の直管の端面(継ぎ目)
+    y_b = y_c - on_tube - d  # 頭管の直管の端面(継ぎ目)
     parts = {}
     for nm, dx in (("L", -PITCH / 2), ("R", +PITCH / 2)):
         x = x_c + dx
         parts[f"outer_tube_{nm}"] = Pos(x, y_c, Z_B) * Rot(-90, 0, 0) * outer_tube(outer_len)  # Z → +Y(つばが y_c)
         parts[f"inner_tube_{nm}"] = Pos(x, y_b, Z_B) * Rot(-90, 0, 0) * inner_tube(L)  # y_b → y_b + L
-        f = ferrule(FERRULE_L)
+        f = ferrule(ferrule_l)
         if bead_on == "tube":  # 飾り線を中管側の端に: 局所 Z を反転
-            f = Pos(0, 0, FERRULE_L) * Rot(180, 0, 0) * f
+            f = Pos(0, 0, ferrule_l) * Rot(180, 0, 0) * f
         parts[f"ferrule_{nm}"] = Pos(x, y_b - FERRULE_ON_BOW, Z_B) * Rot(-90, 0, 0) * f
     parts["bow"] = Pos(x_c, y_b, Z_B) * bow_slide
     return parts, dict(y_c=y_c, y_b=y_b, outer_len=outer_len)
@@ -134,3 +135,48 @@ def check(parts, info, row, valve, L, d, others=None):
         print(f"{v} との最小距離 {min(min(p.distance_to(x) for x in [c] + list(kk)) for p in allp):.3f}")
     if others:
         print("別の抜差との最小距離: %.3f" % min(a.distance_to(b) for a in allp for b in others.values()))
+
+
+# ---- 桂 6+6 方式(頭管の直管を切り詰める。第 1・第 3 抜差)------------------------------------
+FER6 = 6.0  # 桂が頭管・中管にかぶる長さ(それぞれ。桂 L12)
+FER6_GAP = 1.0  # 桂の頭管側の端面と、直管の曲がり始めとの離れ
+
+
+def trimmed_bow(name, mirror=True, w=None):
+    """頭管 name の 2 本の直管を、継ぎ目が曲がり始めから FER6+FER6_GAP 手前になるまで切り詰める(短い方の直管で決める。2 本の継ぎ目は同じ y)。
+    戻り値: (スライド座標のソリッド(継ぎ目 y=-j、直管の軸 x=±10)、切り詰め後の中心線の長さ、j(元の継ぎ目からの切り詰め量))。"""
+    import bow_spline as B
+    from build123d import Edge, Plane, Vector, Wire
+    from build123d import mirror as b3d_mirror
+
+    _, cfg, v, ref, crv, wire = B.bow_spline(name, w or B.W_DEFAULT)
+    a = B.analyze(cfg, v, ref, w or B.W_DEFAULT)
+    j = min(cfg.l_in, cfg.l_out) - (FER6 + FER6_GAP)
+    e2 = wire.edges()[1]
+    e1 = Edge.make_line((cfg.start[0], cfg.start[1] - j, 0), (cfg.p0[0], cfg.p0[1], 0))
+    e3 = Edge.make_line((cfg.p1[0], cfg.p1[1], 0), (cfg.end[0], cfg.end[1] - j, 0))
+    sol = B.planar_tube(Wire([e1, e2, e3]), Vector(cfg.start[0], cfg.start[1] - j, 0), Vector(math.cos(cfg.th0), math.sin(cfg.th0), 0))
+    sol = Pos(-PITCH / 2, 0, 0) * sol
+    if mirror:
+        sol = b3d_mirror(sol, Plane.YZ)
+    return sol, (cfg.l_in - j) + a["L"] + (cfg.l_out - j), j
+
+
+def solve_eq(need, bow_len, L):
+    """中管の長さ L(2 本とも同じ)を決めたときの抜き量 d(ΔL = need になる値)。"""
+    return (need - 2 * K_KNUCKLE - bow_len) / 2 - G_GAP - L
+
+
+def parts6(x_c, bow_local, j, L, d):
+    """桂 6+6 方式の抜差の部品。bow_local: trimmed_bow の結果(継ぎ目は局所 y=-j)。中管・外管は 2 本とも同じ長さ。"""
+    y_c = Y_STUB - G_GAP - L + FER6
+    outer_len = (Y_STUB + S_IN) - y_c
+    y_j = y_c - FER6 - d
+    parts = {}
+    for nm, dx in (("L", -PITCH / 2), ("R", +PITCH / 2)):
+        x = x_c + dx
+        parts[f"outer_tube_{nm}"] = Pos(x, y_c, Z_B) * Rot(-90, 0, 0) * outer_tube(outer_len)
+        parts[f"inner_tube_{nm}"] = Pos(x, y_j, Z_B) * Rot(-90, 0, 0) * inner_tube(L)
+        parts[f"ferrule_{nm}"] = Pos(x, y_j - FER6, Z_B) * Rot(-90, 0, 0) * ferrule(FERRULE_L)
+    parts["bow"] = Pos(x_c, y_j + j, Z_B) * bow_local
+    return parts, dict(y_c=y_c, y_b=y_j, outer_len=outer_len)

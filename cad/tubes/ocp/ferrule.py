@@ -4,6 +4,7 @@
 位置は、線の中心が端から 3 mm(片側)/ 2 mm(両側)。全長 L ごとに飾り線の位置(原点側の端からの距離 z)を持つ。
   L=6 : 片側(z=3)。結果として中央に1本の対称部品
   L=8 : 両側(z=2, 6)
+  L=10: 片側(z=3)
   L=12: 片側(z=3)
 """
 
@@ -24,6 +25,7 @@ BEAD_OFFSET_BOTH = 2.0  # 両側のとき、端から飾り線の中心まで
 VARIANTS = {
     6: [BEAD_OFFSET],
     8: [BEAD_OFFSET_BOTH, 8 - BEAD_OFFSET_BOTH],
+    10: [BEAD_OFFSET],
     12: [BEAD_OFFSET],
 }
 

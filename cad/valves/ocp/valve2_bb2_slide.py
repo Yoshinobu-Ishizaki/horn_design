@@ -16,6 +16,7 @@ import bows  # noqa: E402
 CENTS = 100.0
 D_NOMINAL = 5.0
 VALVE = "valve2"
+FERRULE_L = 10.0  # 桂 L10(飾り 1 本)。頭管側 4・中管側 6
 BOW_LEN = sum(s[1] if s[0] == "L" else s[1] * abs(s[2]) * 3.141592653589793 / 180.0 for s in bows.BOWS["f2bow"]["segs"])  # f2bow の中心線(5 + π·10 + 5)
 
 
@@ -34,7 +35,7 @@ def build(L=None, d=None):
         d = d_exact if d is None else d
     from valve_row import VALVES
 
-    parts, info = S.slide_parts(VALVES[VALVE], bow_slide(), L, d)
+    parts, info = S.slide_parts(VALVES[VALVE], bow_slide(), L, d, ferrule_l=FERRULE_L)
     return parts, info, L, d
 
 
