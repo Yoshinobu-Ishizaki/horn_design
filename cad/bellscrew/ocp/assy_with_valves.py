@@ -25,7 +25,9 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(ROOT / "cad/valves/ocp"))
 
 
-def main() -> None:
+def main(hook=None) -> None:
+    """hook(M, branch) -> (branch, parts, names, colors): ほかのスクリプト(cad/branch2 など)が、1番管を差し替えたり
+    部品を足したりするための入り口。M はベル(設計の座標)から組立への変換。"""
     from ocp_vscode import Camera
 
     import all_slides as A
@@ -72,9 +74,15 @@ def main() -> None:
     for tag, p in slides.items():
         parts += list(p.values())
         names += [f"{tag}_{k}" for k in p]
+    extra = ([], [], [])
+    if hook is not None:
+        branch, *extra = hook(M, branch)
     parts += [bell, branch, screw]
     names += ["bell03_bell_wall", "bell03_branch1_wall", "bellscrew"]
     colors = [None] * len(parts)
+    parts += extra[0]
+    names += extra[1]
+    colors += extra[2]
     if "--mark-d12" in sys.argv:
         circles, cnames = d12_circles(M, BP.WALL)
         parts += circles
