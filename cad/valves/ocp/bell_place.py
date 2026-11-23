@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT / "cad" / "bell03" / "tools"))
 sys.path.insert(0, str(ROOT / "cad" / "bell03" / "ocp"))
 
 WALL = 0.4
-TILT_DEG = 5.0  # ベル芯線の +Y の最高点の接線(X 方向)まわりに、+X 側から見て時計回りに回す角度(ユーザー指示。0 なら回さない)
+TILT_DEG = 4.5  # ベル芯線の +Y の最高点の接線(X 方向)まわりに、+X 側から見て時計回りに回す角度(ユーザー指示。0 なら回さない)
 
 
 def build_bell():

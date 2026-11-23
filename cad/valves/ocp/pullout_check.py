@@ -1,5 +1,5 @@
 """抜差を抜いたとき、頭管(とその先に動く部品)が、ベル・1番管に干渉しないかを調べる。
-  python3 cad/valves/ocp/warm.py run cad/valves/ocp/pullout_check.py [スライド名 既定 Bb3] [--tip 10(負なら外へ出る。-10 で完全に抜けて 10 mm 出る)] [--no-check] [--step 5] [--no-show]
+  python3 cad/valves/ocp/warm.py run cad/valves/ocp/pullout_check.py [スライド名 既定 Bb3] [--tip 10(負なら外へ出る。-10 で完全に抜けて 10 mm 出る)] [--no-check] [--tilt 角度] [--step 5] [--no-show]
 抜く量は、中管の先端が、外管の開いた端(つばの端)から --tip mm の所まで(外管の中に --tip mm だけ残る)。
 動かす部品: 中管・桂・頭管(外管は動かさない)。-Y 方向へ平行移動する。
 """
@@ -37,7 +37,7 @@ def main():
     pull = (inner_tip - outer_end) - tip
     print(f"{name}: 外管の開いた端 y={outer_end:.3f}、中管の先端 y={inner_tip:.3f}(外管の中に {inner_tip - outer_end:.2f} mm)→ あと {pull:.2f} mm 抜くと、先端が外管の開いた端から {abs(tip):g} mm {"出る" if tip < 0 else "内側"}")
     bell, branch, M, ctr = BP.placed_manual()
-    M2, pv, tw = BP.tilt_about_top_tangent(M, BP.TILT_DEG)
+    M2, pv, tw = BP.tilt_about_top_tangent(M, arg("--tilt", BP.TILT_DEG))
     from shape_cache import cached
 
     info = cached("bell03_walls", BP.WALL, BP.ROOT / "cad" / "bell03" / "ocp" / "bell03_surface.py", BP.build_bell)
