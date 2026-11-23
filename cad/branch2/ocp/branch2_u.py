@@ -25,6 +25,9 @@ sys.path[:0] = [str(HERE), str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valv
 PITCH = 50.0  # 50 → 40 → 60 → 50(ユーザー指示)
 
 
+U_RMIN = 21.6  # 2番管の U 字の最小曲げ半径(標準 22.5 → 21.6 に角ばらせた。抜差の 2 本目の中管 Bb_return_inner_tube_2 との表面距離 0.292 → 0.8)
+
+
 def valve4_exit():
     """第 4 の 2 階・右下の枝管の出口の端面の中心と、外向きの軸。"""
     import valve4_knuckle as V
@@ -35,14 +38,15 @@ def valve4_exit():
     return np.array([c.X, c.Y, c.Z]), np.array([n.X, n.Y, n.Z])
 
 
-def u_wire_local(pitch):
-    """基本の U 字管の芯線(ubows の座標: 左の直線の始端 (-P/2, 0) から +Y、右の直線の終端 (P/2, 0))。"""
+def u_wire_local(pitch, rmin=None):
+    """基本の U 字管の芯線(ubows の座標: 左の直線の始端 (-P/2, 0) から +Y、右の直線の終端 (P/2, 0))。
+    rmin: 最小曲げ半径(None なら ubows の標準 = 半円 R の 0.9 倍。小さくすると角ばる)。"""
     from build123d import Edge, Wire
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 
     import ubows
 
-    _, info = ubows.u_bow(pitch)
+    _, info = ubows.u_bow(pitch, None, rmin)
     p, leg = pitch, ubows.LEG
     e2 = Edge(BRepBuilderAPI_MakeEdge(info["crv"]).Edge())
     return Wire([Edge.make_line((-p / 2, 0, 0), (-p / 2, leg, 0)), e2, Edge.make_line((p / 2, leg, 0), (p / 2, 0, 0))]), info
@@ -100,7 +104,7 @@ def hook(M, branch, others):
     import bell_place as BP
 
     if True:
-        w, info = u_wire_local(PITCH)
+        w, info = u_wire_local(PITCH, U_RMIN)
         T, pl = placement(M)
         ww = BP.apply(w, T)
         q1 = ww.position_at(1.0)
