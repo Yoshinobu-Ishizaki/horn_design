@@ -36,13 +36,15 @@ STRAIGHT = 250.0  # 直線 (mm)。円板に接するまで
 R1, TH1 = 100.0, 0.0  # 直線と渦巻きの間の円弧 (mm, deg)。0 なら円弧なし(直線から円板に巻き付ける)
 RI = 137.5  # 曲げに使う円板の半径 (mm)。直径 275
 BRANCH_DRI = 57.28  # 1番管で内側の円の半径を減らす量 (mm)。大きいほど内側へ曲がる
-BRANCH_ARC_R = 57.0  # 1番管の渦巻きから末端の直線へつなぐ円弧の半径 (mm)。BRANCH_END_DY を上げたとき、渦巻きをやめる点が
-# ベルとの最近接(隙間 1.4)の所に来るように 50 → 57(渦巻きは 1番管の中の 312.2 まで、隙間 1.403)
+BRANCH_ARC_R = 45.0  # 1番管の渦巻きから末端の直線へつなぐ円弧の半径 (mm)。50 → 57(BRANCH_END_DY を上げたとき、隙間 1.4 の
+# 最近接の所で渦巻きをやめる)→ 45(ユーザー指示: ベルと 1.4 ぐらいで並走する区間を増やし、1番管を長くする。
+# 渦巻きは 1番管の中の 338.7 まで、隙間 1.397、1番管 576.568 で R57 より 9.1 長い)
 BRANCH_EXIT_MIN = 150.0  # 渦巻きをやめる点を探し始める、1番管の中の長さ (mm)。手前の解はベルを横切る
 BRANCH_END_DY = 19.385790  # 末端の直線の高さ: 組立姿勢で、円板の中心より上へ (mm)。2番管(U 字、ピッチ 40、cad/branch2/ocp/branch2_u.py)の
 # 浮いている直線の軸に、まっすぐつながる高さ(2026-11-23。最初は 10、暫定)
-BRANCH_END_TRIM = 41.938  # 末端の直線を、メンズールが ⌀12 になる L(l_branch_end)より手前で切る長さ (mm)。2番管(U 字、
-# cad/branch2/ocp/branch2_u.py)との接続点で切る(2026-11-23)。渦巻きの減らし方(BRANCH_DRI·s²)の s は l_branch_end のまま
+BRANCH_END_S = 82.500070  # 末端の位置: 末端の直線の上で、基準点(円板の中心から組立姿勢で BRANCH_END_DY 上)から +X(組立姿勢)へ (mm)。
+# 2番管(U 字、cad/branch2/ocp/branch2_u.py)との接続点(2026-11-23)。円弧の R を変えても末端はここ。
+# 渦巻きの減らし方(BRANCH_DRI·s²)の s は、メンズールが ⌀12 になる L(l_branch_end)のまま
 ASSEMBLY_ROT_Z = 15.0  # 管体組立の基本姿勢: リム中心まわりに Z 軸で回す角度 (deg、+Z から見て反時計回り)
 N_SPIRAL = 161  # ベルの渦巻きのスプラインの通過点の数
 N_BRANCH = 161  # 1番管のスプラインの通過点の数
@@ -178,11 +180,12 @@ def build_branch_wire(**kw) -> Wire:
         Spline(*[_v(p) for p in g["branch"]], tangents=(_v(t0), _v(t1)), tangent_scalars=(1.0, 1.0)),
         ThreePointArc(_v(a0), _v(am), _v(a1)),
     ]
-    # 末端の直線は、ベル(実際の長さ)と合わせて、全長が l_branch_end - BRANCH_END_TRIM になる長さにする。
+    # 末端の直線は、基準点から BRANCH_END_S の所(2番管との接続点)まで。
     # 1番管のメンズールは、ベルの実際の長さから始める(bell03_surface.py)。
-    rest = (g["l_branch_end"] - build_wire(**kw).length) - sum(e.length for e in edges) - BRANCH_END_TRIM
     l0, l1 = g["line"]
     u = (l1 - l0) / np.linalg.norm(l1 - l0)
+    base = g["c"] + kw.get("end_dy", BRANCH_END_DY) * np.array([-u[1], u[0]])
+    rest = BRANCH_END_S - float((l0 - base) @ u)
     edges.append(Line(_v(l0), _v(l0 + rest * u)))
     return Wire(edges)
 
@@ -220,8 +223,8 @@ def main(argv: list[str]) -> None:
     for name, x in [("bell", w), ("branch1", wb)]:
         e, te = x.position_at(1), x.tangent_at(1)
         print(f"{name}: length {x.length:.3f} end ({e.X:.3f},{e.Y:.3f}) dir {math.degrees(math.atan2(te.Y, te.X)):.2f}")
-    print(f"bell length target {TOTAL}, branch1 target {g['l_branch_end'] - TOTAL - BRANCH_END_TRIM:.3f} "
-          f"(D 12 at {g['l_branch_end'] - TOTAL:.3f}, trimmed {BRANCH_END_TRIM})")
+    print(f"bell length target {TOTAL}, branch1 ends at the joint (BRANCH_END_S {BRANCH_END_S}); "
+          f"D 12 at branch1 {g['l_branch_end'] - TOTAL:.3f}")
     print(f"joint tangent gap {(w.tangent_at(1) - wb.tangent_at(0)).length:.2e}, position gap {(w.position_at(1) - wb.position_at(0)).length:.2e}")
     print(f"inner circle: centre ({g['c'][0]:.3f},{g['c'][1]:.3f}) R {RI} (D {2 * RI}); branch RI -> {RI - BRANCH_DRI}")
     print(f"branch1: spiral to L {g['l_exit'] - TOTAL:.3f}, arc R{BRANCH_ARC_R} {math.degrees(g['arc_sweep']):.2f} deg, "
