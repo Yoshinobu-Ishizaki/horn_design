@@ -101,8 +101,7 @@ def placement(pitch=PITCH, rise=RISE, side=-1):
     return T, dict(P0=P0, a=a, n=n)
 
 
-def main() -> None:
-    import assy_with_valves as AW
+def make_hook():
     import bell_place as BP
     import branch2_u as U
 
@@ -186,7 +185,13 @@ def main() -> None:
                 n2 + ["bb34_U_wall", "bb34_straight_wall", "bb34_L_wall", "bb34_U_centerline", "bb34_L_centerline"],
                 c2 + ["#e0a020", "#e0a020", "#e0a020", "#ff2020", "#ff2020"])
 
-    AW.main(hook=hook)
+    return hook
+
+
+def main() -> None:
+    import assy_with_valves as AW
+
+    AW.main(hook=make_hook())
 
 
 if __name__ == "__main__":

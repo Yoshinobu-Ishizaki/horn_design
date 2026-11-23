@@ -25,6 +25,9 @@ sys.path[:0] = [str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valves/ocp"), s
 X_P1 = 87.5
 OFFSET = 10.0
 Y_S = -40.0
+D = 12.0
+R_MIN = 8.0  # 軸線の最小曲げ半径の下限(外面の半径 6.4 より十分大きく)
+GAP_REQ = 0.3  # 1番管などとの表面距離の下限(0 以上が条件。サンプリング誤差の余裕)
 FIT_Y = (-175.0, 60.0)  # 近似に使う Y の範囲(ベルのリム端の立ち上がりを除く)
 BIN = 4.0
 
@@ -82,7 +85,69 @@ def best_scales(E, tE, S, tS):
     return best
 
 
+def tess_world(sh, tol):
+    """ワールド座標の頂点の並び。Shape.tessellate は Location を無視するので、面ごとに located の三角形分割から取る。"""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.TopLoc import TopLoc_Location
+
+    BRepMesh_IncrementalMesh(sh.wrapped, tol, False, 0.3, True)
+    out = []
+    for f in sh.faces():
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation_s(f.wrapped, loc)
+        if tri is None:
+            continue
+        tr = loc.Transformation()
+        for i in range(1, tri.NbNodes() + 1):
+            q = tri.Node(i).Transformed(tr)
+            out.append((q.X(), q.Y(), q.Z()))
+    return out
+
+
+def l_axis(E, u, S, R, n=120):
+    """+Z から見て L 字の軸線。XY では E から u の XY 成分の向き(-Y)へ直進 → 半径 R で 90° 曲がって +X → S。角は (E.x, S.y)。
+    Z は XY の道のり s の 3 次エルミート(始点で u の傾き、終点で傾き 0)。戻り値: 点列 (n, 3)、始点・終点の接線。"""
+    d1 = np.array([u[0], u[1]]) / np.hypot(u[0], u[1])
+    d2 = np.array([1.0, 0.0])
+    Q = np.array([E[0], S[1]])  # 角
+    if abs(d1 @ (Q - E[:2]) - np.linalg.norm(Q - E[:2])) > 1e-6:
+        raise ValueError("E の出口が角の向きでない")
+    a, b = Q - R * d1, Q + R * d2
+    if np.linalg.norm(a - E[:2]) < 0 or np.linalg.norm(S[:2] - b) < 0 or (a - E[:2]) @ d1 < 0 or (S[:2] - b) @ d2 < 0:
+        return None
+    o = a + R * d2  # 円弧の中心
+    l1, la, l3 = (a - E[:2]) @ d1, R * math.pi / 2, (S[:2] - b) @ d2
+    Lt = l1 + la + l3
+    ss = np.linspace(0, Lt, n)
+    xy = np.empty((n, 2))
+    for i, s_ in enumerate(ss):
+        if s_ <= l1:
+            xy[i] = E[:2] + d1 * s_
+        elif s_ <= l1 + la:
+            th = (s_ - l1) / R  # 0..π/2: a - o の方向から回す(d1 → d2)
+            xy[i] = o + R * (math.cos(th) * (a - o) / R + math.sin(th) * (b - o) / R)
+        else:
+            xy[i] = b + d2 * (s_ - l1 - la)
+    m0 = u[2] / math.hypot(u[0], u[1])
+    t = ss / Lt
+    h00, h10, h01, h11 = 2 * t**3 - 3 * t**2 + 1, t**3 - 2 * t**2 + t, -2 * t**3 + 3 * t**2, t**3 - t**2
+    z = h00 * E[2] + h10 * Lt * m0 + h01 * S[2]
+    P = np.column_stack([xy, z])
+    t0 = np.array([*d1, m0]); t0 /= np.linalg.norm(t0)
+    return P, t0, np.array([1.0, 0.0, 0.0]), Lt
+
+
 def hook(M, branch, others):
+    import bb34_u
+
+    branch, p0, n0, c0 = bb34_u.make_hook()(M, branch, others)  # 2番管と Bb の第 3→第 4 の回路(bb34)も一緒に出す
+    others = others + list(zip(n0, p0))
+    branch, p1, n1, c1 = aux_hook(M, branch, others)
+    return branch, p0 + p1, n0 + n1, c0 + c1
+
+
+def aux_hook(M, branch, others):
     import bell_place as BP
     from build123d import Compound, Edge, Face, Plane, Polyline, Vector, Wire
 
@@ -105,18 +170,84 @@ def hook(M, branch, others):
     E, u = f1_225_exit()
     print(f"S (P1 ∩ P2, y {ys_:g}) = {S.round(3).tolist()}, direction (1, 0, 0)")
     print(f"E (valve4 F1-225 exit) = {E.round(3).tolist()}, outward axis {u.round(4).tolist()}")
-    r, k0, k1 = best_scales(E, u, S, tS)
-    B = bezier(E, u, S, tS, k0, k1)
-    rmin, kap = min_radius(B)
-    L = np.linalg.norm(S - E)
-    print(f"cubic Bezier E -> S: tangent scales {k0:.2f}, {k1:.2f} (chord {L:.2f}); min bend R {rmin:.2f}")
-    edge = Edge.make_bezier(*[Vector(*p) for p in B])
-    w = Wire([edge])
+    from scipy.spatial import cKDTree
+
+    allo = others + [("bell03_branch1_wall", branch)]
+    pts, lab = [], []
+    for n, sh in allo:
+        if n == "valve4_knuckle_F1_225_twisted" or not hasattr(sh, "tessellate") or n.endswith("centerline"):
+            continue
+        v = tess_world(sh, 0.15)
+        pts += v
+        lab += [n] * len(v)
+    tree = cKDTree(np.array(pts))
+    tt = np.linspace(0, 1, 160)[:, None]
+
+    def gap_of(B):
+        C = (1 - tt) ** 3 * B[0] + 3 * (1 - tt) ** 2 * tt * B[1] + 3 * (1 - tt) * tt**2 * B[2] + tt**3 * B[3]
+        d, i_ = tree.query(C[4:])  # 始点のごく近く(つなぐ枝管)は除く
+        return d.min() - D / 2 - 0.4, lab[int(i_[int(np.argmin(d))])]
+
+    # 5 次ベジェ(制御点 6 つ): E, E + a·u, P2, P3, S − b·(1,0,0), S。a, b, P2, P3(計 8 変数)を、差分進化で決める。
+    # 条件: 軸と他の部品の頂点の距離から出した隙間 ≥ GAP_REQ、最小曲げ半径 ≥ R_MIN。そのうえで長さを短く。
+    from scipy.optimize import differential_evolution
+
+    tt6 = np.linspace(0, 1, 200)
+    from math import comb
+
+    Bm = np.array([[comb(5, k) * t**k * (1 - t) ** (5 - k) for k in range(6)] for t in tt6])
+    gap_req, r_min_req = arg("--gap", GAP_REQ), arg("--rmin", R_MIN)
+
+    def ctrl(x):
+        return np.array([E, E + x[0] * u, x[2:5], x[5:8], S - x[1] * tS, S])
+
+    def evaluate(x):
+        Pc = ctrl(x)
+        C = Bm @ Pc
+        d1 = np.gradient(C, axis=0)
+        d2 = np.gradient(d1, axis=0)
+        kap = np.linalg.norm(np.cross(d1, d2), axis=1) / np.maximum(np.linalg.norm(d1, axis=1), 1e-9) ** 3
+        kap = kap[2:-2]
+        d, i_ = tree.query(C[6:])
+        return d.min() - D / 2 - 0.4, 1 / max(kap.max(), 1e-9), float(np.linalg.norm(np.diff(C, axis=0), axis=1).sum()), lab[int(i_[int(np.argmin(d))])]
+
+    def cost(x):
+        g, r, ln, _ = evaluate(x)
+        return ln + 400 * max(0, gap_req - g) + 40 * max(0, r_min_req - r)
+
+    lo = np.minimum(E, S) - 25
+    hi = np.maximum(E, S) + 25
+    bounds = [(1, 120), (1, 120)] + list(zip(lo, hi)) + list(zip(lo, hi))
+    res = differential_evolution(cost, bounds, seed=1, popsize=25, maxiter=400, tol=1e-8, polish=False)
+    g, rmin, ln, nm = evaluate(res.x)
+    print(f"quintic Bezier E -> S: gap {g:.3f} ({nm}), min bend R {rmin:.2f}, length {ln:.2f} (cost {res.fun:.2f}); a, b = {res.x[0]:.1f}, {res.x[1]:.1f}")
+    Pc = ctrl(res.x)
+    print(f"  control points: {Pc.round(2).tolist()}")
+    w = Wire([Edge.make_bezier(*[Vector(*p) for p in Pc])])
     print(f"axis length {w.length:.3f}")
     ends = [w.position_at(0.0), w.position_at(1.0)]
     t0, t1 = w.tangent_at(0.0), w.tangent_at(1.0)
     print(f"check: start {np.round([ends[0].X, ends[0].Y, ends[0].Z], 3).tolist()}, tangent {np.round([t0.X, t0.Y, t0.Z], 4).tolist()}; "
           f"end {np.round([ends[1].X, ends[1].Y, ends[1].Z], 3).tolist()}, tangent {np.round([t1.X, t1.Y, t1.Z], 4).tolist()}")
+    import branch2_u as U
+    import bell_place as BP
+    import branch2_l as B2
+
+    tube = U.const_d_tube(w, D, BP.WALL)
+    print(f"tube D {D:g} wall {BP.WALL:g}: valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
+    print("clearance (<5 mm) of the outer surface:")
+    allo = others + [("bell03_branch1_wall", branch)]
+    cl = B2.report_clearance(tube, allo)
+    for n_, sh_ in allo:  # 食い込み(体積の重なり)の確認。接触だけなら 0
+        if n_ == "valve4_knuckle_F1_225_twisted" or not hasattr(sh_, "bounding_box") or not B2.near(sh_.bounding_box(), tube.bounding_box(), 0.1):
+            continue
+        inter = tube.intersect(sh_) if tube.distance_to(sh_) < 1e-6 else None
+        ov = sum(x.volume for x in inter.solids()) if inter else 0.0
+        print(f"  overlap volume with {n_}: {ov:.4f}")
+        if ov > 0:
+            bb_ = inter.solids()[0].bounding_box()
+            print(f"    overlap bbox x {bb_.min.X:.1f}..{bb_.max.X:.1f}, y {bb_.min.Y:.1f}..{bb_.max.Y:.1f}, z {bb_.min.Z:.1f}..{bb_.max.Z:.1f}")
+    print(f"min clearance {cl[0][0]:.3f} ({cl[0][1]})" if cl else "no part within 5 mm")
     # 表示用: 近似直線(P1 上)、P1 上のオフセット直線、点 S、P1・P2 の見える範囲の薄い板
     y0, y1 = FIT_Y
     fit_line = Edge.make_line(Vector(x1, y0, a * y0 + b), Vector(x1, y1, a * y1 + b))
@@ -126,9 +257,9 @@ def hook(M, branch, others):
 
     sphere = bd.Pos(*S) * bd.Sphere(1.5)
     p1 = Face(Wire.make_polygon([Vector(x1, y0, 20), Vector(x1, y1, 20), Vector(x1, y1, 100), Vector(x1, y0, 100)], close=True))
-    return branch, [w, prof, fit_line, off_line, sphere, p1], [
-        "main_aux_axis", "main_aux_profile_on_P1", "main_aux_fit_line", "main_aux_P2_on_P1", "main_aux_S", "main_aux_P1"
-    ], ["#ff2020", "#808080", "#00c0ff", "#00c0ff", "#ff2020", "#80c0ff"]
+    return branch, [tube, w, prof, fit_line, off_line, sphere, p1], [
+        "main_aux_tube_wall", "main_aux_axis", "main_aux_profile_on_P1", "main_aux_fit_line", "main_aux_P2_on_P1", "main_aux_S", "main_aux_P1"
+    ], ["#20c0a0", "#ff2020", "#808080", "#00c0ff", "#00c0ff", "#ff2020", "#80c0ff"]
 
 
 def main() -> None:
