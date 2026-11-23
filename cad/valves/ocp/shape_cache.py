@@ -16,7 +16,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 CACHE = ROOT / "output" / "cache"
-SEARCH = [HERE, ROOT / "cad" / "tubes" / "ocp", ROOT / "cad" / "bows" / "ocp"]
+SEARCH = [HERE, ROOT / "cad" / "tubes" / "ocp", ROOT / "cad" / "bows" / "ocp", ROOT / "cad" / "bell03" / "ocp", ROOT / "cad" / "bell03" / "tools"]
 
 
 def _local_imports(path: Path):
