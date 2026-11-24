@@ -158,10 +158,14 @@ def make_hook():
               f"curvature ends {kap[0]:.1e} / {kap[-1]:.1e}; plane normal {nrm.round(4).tolist()}, valid {ltube.is_valid}, volume {sum(x.volume for x in ltube.solids()):.2f}")
         print("clearance (L):")
         B2.report_clearance(ltube, others)
-        # 2番管(branch2_u.hook)は外した(2026-11-24: 1番管側を短くする。第 4 の 2 階右下は 2 階左下の鏡像の枝管に)
-        return (branch, [tube, straight, ltube, ww, lw],
-                ["bb34_U_wall", "bb34_straight_wall", "bb34_L_wall", "bb34_U_centerline", "bb34_L_centerline"],
-                ["#e0a020", "#e0a020", "#e0a020", "#ff2020", "#ff2020"])
+        # 2番管(branch2_u.hook)は外した(2026-11-24: 1番管側を短くする。第 4 の 2 階右下は 2 階左下の鏡像の枝管に)。
+        # 代わりに 1番管の細い端の L 字管(cad/branch2/ocp/branch1_l.py)で枝管へつなぐ
+        import branch1_l as B1L
+
+        branch, p2, n2, c2 = B1L.hook(M, branch, others)
+        return (branch, p2 + [tube, straight, ltube, ww, lw],
+                n2 + ["bb34_U_wall", "bb34_straight_wall", "bb34_L_wall", "bb34_U_centerline", "bb34_L_centerline"],
+                c2 + ["#e0a020", "#e0a020", "#e0a020", "#ff2020", "#ff2020"])
 
     return hook
 
