@@ -16,7 +16,7 @@ from valve_case import valve_case
 from valve_units import PITCH
 
 Z_TOP = 47.0  # ケース上端(フランジのない側)の元の z
-VALVE4_X = 2 * PITCH  # 第 4 は第 1 から +35(x=70)
+VALVE4_X = 2 * PITCH  # 第 4 は第 1 から +35(x=70)。2026-11-24 に +1(x=71)にしたが、同日 70 に戻した
 VALVES = {"valve2": 0.0, "valve1": +PITCH, "valve3": -PITCH, "valve4": VALVE4_X}  # 名前 → x
 NO_KNUCKLE = {"valve4"}  # 枝管を付けない植込(暫定)
 

@@ -142,13 +142,18 @@ def l_axis(E, u, S, R, n=120):
     return P, t0, np.array([1.0, 0.0, 0.0]), Lt
 
 
+HIDDEN = {"main_aux_profile_on_P1", "main_aux_fit_line", "main_aux_P2_on_P1", "main_aux_S", "main_aux_P1", "main_aux_split_point"}  # 作図用の補助要素(表示しない)
+
+
 def hook(M, branch, others):
     import bb34_u
 
     branch, p0, n0, c0 = bb34_u.make_hook()(M, branch, others)  # 2番管と Bb の第 3→第 4 の回路(bb34)も一緒に出す
     others = others + list(zip(n0, p0))
     branch, p1, n1, c1 = aux_hook(M, branch, others)
-    return branch, p0 + p1, n0 + n1, c0 + c1
+    # 作図用の補助要素(近似直線・オフセット直線・点 S・平面 P1 など)は表示しない(2026-11-24 ユーザー指示)。計算には使うが、モデルにしない
+    keep = [i for i, n in enumerate(n1) if n not in HIDDEN]
+    return branch, p0 + [p1[i] for i in keep], n0 + [n1[i] for i in keep], c0 + [c1[i] for i in keep]
 
 
 def aux_hook(M, branch, others):

@@ -85,13 +85,43 @@ CONNECT_PULL = 0.0  # FreeCAD の枝管と同じ差し込み位置。2 本目の
 # 隣接する第 1 の枝管(L1_225)との表面距離は 12.2 - 出口の x オフセット。0.8 以上にするため、出口の x を第 4 中心から 0.5 刻みの -11 にする(距離 1.2)。
 # 折れの内側の境界線が R13 に触れない限界の抜き量が √2(オフセット 11)以下になる折れ角は θ ≤ 約 52.3°(53° は 1.491 で足りない)。
 # なお折れ角 60°(YZ 傾き 45°)では、限界の抜き量 2.2371(オフセット 11.58)で表面距離が 0.618 にしかならなかった。
-THETA_2F = 52.0
-EXIT_X_OFFSET_2F = 11.0
-PULL_OUT_2F = (EXIT_X_OFFSET_2F - 10.0) * math.sqrt(2)
+# 2026-11-24: 抜き量を 2.5 に(kp1 の位置が変わるので、θ・ψ は kp1 から bb34 の直管へ向けて解き直す = solve_2f)。
+# 抜き量ごとの曲げ内側の境界線のケース軸からの最小距離(R13 以上で干渉なし)、θ、第 1 の L1_225 との表面距離(= 12.2 - 出口の x オフセット):
+#   1.414: 12.30(食い込み)・58.86°・1.200 / 2.2: 13.02(限界)・59.43°・0.644 / 2.5: 13.29・59.66°・0.43 / **2.943: θ = 60.000°** / 3.0: 13.75・60.04°(60° 超)・0.079
+# 限界ぎりぎりにせず、0.3 の余裕を持たせる(再計算で角度が変わっても食い込まない)。
+PULL_OUT_2F = 1.95  # bb34 の U をピッチ 46 にしたので θ は約 54° に下がり、抜き量を減らせた(2026-11-24)。ケース内側の境界線の余裕 約 0.3、第 1 の L1_225 との距離 約 0.8。履歴: √2 → 2.5 → 2.942968(θ 60°)→ 1.95
+EXIT_X_OFFSET_2F = (PULL_OUT_2F + 10.0 * math.sqrt(2)) / math.sqrt(2)  # kp1 の第 4 中心からの -x(= 出口の軸の x オフセット)
+THETA_2F = None  # solve_2f() で決まる
+
+# 2026-11-24 再設計: 折れ点 kp1(= 第 4 中心から 225° 方向へ PULL_OUT_2F + D1 の点、z=34)から、
+# YZ に投影したとき、bb34 の直管(U の浮いている端 y = 10 - √(46² - 15²) = -33.486、z = 49)の中心へ向かう方向に、出口の軸を向ける(抜き量を変えると kp1 が動くので、θ・ψ は solve_2f() で解き直す)
+# (XY 投影 (0,-1) も保つ → 折れ角 θ と捻じり角 ψ が両方決まる)。折れ角 60° までは許容。
+BB34_PITCH, BB34_RISE = 46.0, 15.0  # bb34_u.PITCH / RISE と同じにする
+BB34_STRAIGHT_YZ = (10.0 - math.sqrt(BB34_PITCH**2 - BB34_RISE**2), 49.0)  # bb34 の直管の中心の (y, z)
+
+
+def kp1_2f():
+    """2 階左下の枝管の折れ点(ワールド)。"""
+    from knuckle import D1
+
+    s = PULL_OUT_2F + D1
+    a = math.radians(HOLE_ANGLE)
+    return (X_VALVE4 + s * math.cos(a), s * math.sin(a), Z_F2)
+
+
+def tilt_2f():
+    """kp1 から bb34 の直管の中心へ向かう方向の、-Y からの YZ 傾き [deg]。"""
+    _, y, z = kp1_2f()
+    return math.degrees(math.atan2(BB34_STRAIGHT_YZ[1] - z, y - BB34_STRAIGHT_YZ[0]))
+
+
+def solve_2f():
+    """(θ, ψ) [deg]。XY 投影 (0,-1) と YZ 傾き tilt_2f() を同時に満たす。"""
+    return solve_for_tilt(tilt_2f())
 
 
 def twisted_knuckle_2f():
-    th, ps = solve(THETA_2F, "xy")[:2]  # XY 投影 (0,-1)。YZ 傾きは 29.46°
+    th, ps = solve_2f()
     return twisted_knuckle(th, ps, PULL_OUT_2F, Z_F2)
 
 
@@ -112,10 +142,10 @@ def knuckle_2f_upper_right(pull: float = CONNECT_PULL):
     return Pos(X_VALVE4, 0, Z_F2) * Rot(0, 0, 45.0) * Pos(pull, 0, 0) * Rot(180, 0, 0) * knuckle(45.0)
 
 
-def knuckle_1f_lower_right_down(pull: float = CONNECT_PULL):
-    """第 4 の 1 階・右下の孔(315°、+x,-y)の 45° 枝管。1 本目 315°、折れは時計回りに 45° → 2 本目は -Y 向き(315° - 45° = 270°)。
-    (2026-11-23 ユーザー指示: ねじった枝管の鏡映をやめ、出口を下(-Y)に向ける)"""
-    return Pos(X_VALVE4, 0, Z_F1) * Rot(0, 0, 315.0) * Pos(pull, 0, 0) * Rot(180, 0, 0) * knuckle(45.0)
+def knuckle_1f_lower_right(pull: float = CONNECT_PULL):
+    """第 4 の 1 階・右下の孔(315°、+x,-y)の 45° 枝管。1 本目 315°、折れは反時計回りに 45° → 2 本目は +X 向き(315° + 45° = 0°)。出口の端面 (x+17.5, -10, 17)。
+    (2026-11-24 ユーザー指示: 出口を +X に向ける。以前は時計回りに折れて -Y 向き(knuckle_1f_lower_right_down、2026-11-23))"""
+    return Pos(X_VALVE4, 0, Z_F1) * Rot(0, 0, 315.0) * Pos(pull, 0, 0) * knuckle(45.0)
 
 
 def mirrored_twisted_knuckle():
@@ -141,8 +171,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right_down(), twisted_knuckle_2f(), knuckle_2f_right()]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_minusy", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
+    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right(), twisted_knuckle_2f(), knuckle_2f_right()]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_plusx", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 

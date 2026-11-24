@@ -282,7 +282,7 @@ def hook(M, branch, others):
     import bell_place as BP
     import branch2_l as B2
     import branch2_u as U
-    from build123d import Edge, Sphere, Pos, Vector, Wire
+    from build123d import Edge, Vector, Wire
     from scipy.spatial import cKDTree
     from shape_cache import cached
 
@@ -325,8 +325,11 @@ def hook(M, branch, others):
     x = sol[:5]
     if AUX2_MID_ANGLE is not None:
         tm0 = tm_of(np.asarray(x[:3], float), E, u, S_end, tS)
-        x[4] = r2_for_angle(np.asarray(x[:3], float), tm0, S_end, tS, AUX2_MID_ANGLE, r_min)
-        print(f"aux2 middle straight tilted {AUX2_MID_ANGLE:g} deg from +Z (seen from -Y, + = toward +X): r2 = {x[4]:.4f}")
+        try:
+            x[4] = r2_for_angle(np.asarray(x[:3], float), tm0, S_end, tS, AUX2_MID_ANGLE, r_min)
+            print(f"aux2 middle straight tilted {AUX2_MID_ANGLE:g} deg from +Z (seen from -Y, + = toward +X): r2 = {x[4]:.4f}")
+        except ValueError as e:  # 第 4 を +1 mm 動かした後は区間に解がない。G2 版(既定)は r2 を使わないので、円弧版(--csc)の参考値だけが狂う
+            print(f"warning: r2_for_angle: {e}; r2 stays {x[4]:.4f} (only the --csc arc version uses it)")
     Pm, tm, p1, p2 = build(x, E, u, S_end, tS)
     print(f"solution y(P_m, r1, r2) = {np.round(x, 4).tolist()}")
     print(f"split point P_m {Pm.round(3).tolist()}, direction t_m {tm.round(4).tolist()}")
@@ -363,10 +366,10 @@ def hook(M, branch, others):
     B2.report_clearance(t1, [(n, s) for n, s in allo if not n.startswith("main_aux")])
     print("clearance aux2:")
     B2.report_clearance(t2, [(n, s) for n, s in allo if not n.startswith("main_aux")])
-    print(f"aux1-aux2 distance {t1.distance_to(t2):.3f}")
-    sph = Pos(*Pm) * Sphere(1.5)
-    return (branch, p0k + [t1, t2, w1_, w2_, sph], n0k + ["main_aux1_wall", "main_aux2_wall", "main_aux1_centerline", "main_aux2_centerline", "main_aux_split_point"],
-            c0k + ["#20c0a0", "#20a0e0", "#ff2020", "#ff2020", "#ff2020"])
+    if B2.checks_enabled():
+        print(f"aux1-aux2 distance {t1.distance_to(t2):.3f}")
+    return (branch, p0k + [t1, t2, w1_, w2_], n0k + ["main_aux1_wall", "main_aux2_wall", "main_aux1_centerline", "main_aux2_centerline"],
+            c0k + ["#20c0a0", "#20a0e0", "#ff2020", "#ff2020"])  # 分割点の球(作図用の補助)は出さない
 
 
 def main() -> None:

@@ -26,7 +26,7 @@ ROOT = HERE.parents[2]
 sys.path[:0] = [str(HERE), str(ROOT / "cad/branch2/ocp"), str(ROOT / "cad/bellscrew/ocp"), str(ROOT / "cad/valves/ocp"),
                 str(ROOT / "cad/bows/ocp"), str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
-PITCH = None  # None なら、第 4 の枝管の出口の軸の延長の交点を通るように決める
+PITCH = 46.0  # U のピッチ(49.8625 → 40 → 46、2026-11-24)。None なら、第 4 の枝管の出口の軸の延長の交点を通るように決める。RISE(+15)は変えない
 RISE = 15.0  # もう一方の直線の軸の高さ: 2 階の軸平面(z = 34)から +15
 D = 12.0
 REF_NAME = "Bb1_outer_tube_R"  # L 字の曲げ R は、この部品との表面間距離が TARGET_GAP になるように決める
@@ -109,7 +109,7 @@ def make_hook():
     rise = arg("--rise", RISE)
     P0 = exit_of_knuckle()[0]
     Q = target_point(P0[2] + rise)
-    pitch = arg("--pitch", math.hypot(Q[1] - P0[1], rise))
+    pitch = arg("--pitch", PITCH if PITCH is not None else math.hypot(Q[1] - P0[1], rise))
     side = +1 if "--side" in sys.argv and sys.argv[sys.argv.index("--side") + 1] == "plus" else -1
 
     def hook(M, branch, others):
@@ -141,44 +141,23 @@ def make_hook():
               f"volume {sum(x.volume for x in straight.solids()):.2f}")
         import branch2_l as B2
 
-        # L 字の管: 直管の右端(x = X_END)→ 角(出口の軸の延長と z=49 の交点)→ 第 4 の 2 階左下(225°)の枝管の端面
-        p_start = np.array([X_END, sx[1], sx[2]])
-        F, uo = f2_225_exit()
-        L_ref = [o for o in others if o[0] == REF_NAME]
-        if not L_ref:
-            raise ValueError(f"{REF_NAME} が組立にない")
-        ref = L_ref[0][1]
-
-        def build_l(r):
-            lw = l_wire(p_start, Q, F, r)
-            return lw, U.const_d_tube(lw, D, BP.WALL)
-
-        r_max = min(float(np.linalg.norm(Q - p_start)), float(np.linalg.norm(F - Q)))
-        if "--R" in sys.argv:
-            r_l = float(sys.argv[sys.argv.index("--R") + 1])
-        else:
-            scan = []
-            for r in np.linspace(5.0, r_max, 9):
-                scan.append((float(r), build_l(float(r))[1].distance_to(ref)))
-            print("L bend R scan (R, surface distance to " + REF_NAME + "): " + ", ".join(f"({r:.2f}, {d:.3f})" for r, d in scan))
-            from scipy.optimize import brentq
-
-            fs = [d - TARGET_GAP for _, d in scan]
-            br = [(scan[i][0], scan[i + 1][0]) for i in range(len(scan) - 1) if fs[i] * fs[i + 1] <= 0]
-            if br:
-                r_l = brentq(lambda r: build_l(r)[1].distance_to(ref) - TARGET_GAP, *br[0], xtol=1e-3)
-            else:
-                r_l = min(scan, key=lambda x: abs(x[1] - TARGET_GAP))[0]
-                print(f"  (target {TARGET_GAP:g} is not crossed; nearest R {r_l:.2f})")
-        lw, ltube = build_l(r_l)
-        print(f"L tube: R {r_l:.3f} (max {r_max:.3f}), corner {Q.round(3).tolist()}, length {lw.length:.3f}, valid {ltube.is_valid}, "
-              f"volume {sum(x.volume for x in ltube.solids()):.2f}; distance to {REF_NAME} {ltube.distance_to(ref):.3f}")
-        print("clearance (L):")
-        B2.report_clearance(ltube, others)
         print("clearance (U):")
         B2.report_clearance(tube, others)
         print("clearance (straight):")
         B2.report_clearance(straight, others)
+        # L 字の管: 直管の右端 → 第 4 の 2 階左下の枝管の出口。出口の軸(kp1 を通る直線)を X に投影した平面に乗る。G2 スプライン(g2_l.py)
+        import g2_l as GL
+
+        F, uo = f2_225_exit()
+        ex, d2 = np.array([1.0, 0.0, 0.0]), -uo / np.linalg.norm(uo)  # 枝管へ入る向き
+        p_start = np.array([X_END, sx[1], sx[2]])
+        v = GL.solve(p_start, ex, F, d2)
+        lw, nrm, kap, clen = GL.wire(p_start, ex, F, d2, v)
+        ltube = U.const_d_tube(lw, D, BP.WALL, nrm)
+        print(f"L tube (G2): straight {v[0]:.3f} + quintic Bezier {clen:.3f} + straight {v[1]:.3f} = {lw.length:.3f}; min bend R {1 / np.abs(kap).max():.2f}, "
+              f"curvature ends {kap[0]:.1e} / {kap[-1]:.1e}; plane normal {nrm.round(4).tolist()}, valid {ltube.is_valid}, volume {sum(x.volume for x in ltube.solids()):.2f}")
+        print("clearance (L):")
+        B2.report_clearance(ltube, others)
         # 2番管(管体組立の一部)も一緒に出す
         branch, p2, n2, c2 = U.hook(M, branch, others)
         return (branch, p2 + [tube, straight, ltube, ww, lw],

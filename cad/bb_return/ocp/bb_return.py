@@ -25,7 +25,7 @@ D = 12.0
 STRAIGHT = 4.0
 R_MIN = 20.0  # 経路の最小曲げ半径の下限(芯線をなるべく短くするので、この値に近づく)
 GAP_REQ = 0.3  # 軸と他の部品の頂点の距離から出した隙間の下限(サンプリング誤差の余裕)
-START_NAME = "valve4_knuckle_F1_315_45deg_minusy"
+START_NAME = "valve4_knuckle_F1_315_45deg_plusx"
 END_NAME = "valve1_tube_F2_45"
 
 
@@ -92,74 +92,26 @@ def bezier_stats(Pc, n=200):
 
 
 def hook(M, branch, others):
-    import slide_u as BS
+    """Bb 抜差(U 字)の先から第 1 の 2 階右上の枝管(v1-f2-45)へ。両端に直線、中間は左右対称な G2 スプライン(への字、chevron.py)。z = 34 の平面内。"""
     import bell_place as BP
     import branch2_l as B2
     import branch2_u as U
+    import chevron as CH
+    import slide_u as BS
 
-    branch, p0, n0, c0 = BS.hook(M, branch, others)  # 2番管・bb34・主管補助管・抜差の中管と U も一緒に出す
+    branch, p0, n0, c0 = BS.hook(M, branch, others)  # 2番管・bb34・主管補助管・第 4 の 1 階右下の枝管につけた U 字も一緒に出す
     others = others + list(zip(n0, p0))
-    arg = lambda k, d: float(sys.argv[sys.argv.index(k) + 1]) if k in sys.argv else d  # noqa: E731
-    gap2 = arg("--gap2", GAP2)
-    tube2 = dict(others)["Bb_return_inner_tube_2"]
-    tip = tube2.bounding_box().max.Y  # 2 本目の中管の先端(+Y)
-    cx = tube2.bounding_box().center()
-    p_start = np.array([cx.X, tip + gap2, cx.Z])
+    wu = dict(zip(n0, p0))["v4_f1_315_U_centerline"]
+    q, t = wu.position_at(1.0), wu.tangent_at(1.0)
+    A, tA = np.array([q.X, q.Y, q.Z]), np.array([t.X, t.Y, t.Z])
     P_e, n_e = exit_of(END_NAME, (35.0, 0.0))
-    t_s, t_e = np.array([0.0, 1.0, 0.0]), -n_e
-    print(f"start {p_start.round(3).tolist()} (2nd inner tube tip y {tip:.3f} + {gap2:g}), direction {t_s.tolist()}")
-    print(f"end {END_NAME}: {P_e.round(3).tolist()}, out {n_e.round(3).tolist()} (travel in {t_e.round(3).tolist()})")
-    straight, rmin_req, gap_req = arg("--straight", STRAIGHT_END), arg("--rmin", R_MIN), arg("--gap", GAP_REQ)
-    # 障害物: 経路の近く(包絡)にある部品だけ、ワールド座標の頂点を取る(全部品の三角形分割は遅い)
-    from build123d import Box, Pos
-    from main_aux import tess_world
-    from scipy.spatial import cKDTree
-
-    lo = np.minimum(p_start, P_e) - 15
-    hi = np.maximum(p_start, P_e) + 15
-    near_box = Pos(*((lo + hi) / 2)) * Box(*(hi - lo))
-    nb = near_box.bounding_box()
-    pts = []
-    for n_, sh_ in others:
-        if n_ in (END_NAME, "Bb_return_inner_tube_2") or n_.endswith("centerline") or not hasattr(sh_, "bounding_box"):
-            continue
-        if B2.near(sh_.bounding_box(optimal=False), nb, 0.0):
-            pts += tess_world(sh_, 0.2)
-    tree = cKDTree(np.array(pts)) if pts else None
-    print(f"obstacle vertices near the path: {len(pts)}")
-    if "--spline" not in sys.argv:  # 既定: 真の円弧(直線 + 円弧 + 直線)
-        w, info = arc_path(p_start, t_s, P_e, t_e, straight)
-        th = np.linspace(0, 1, 200)
-        # 円弧の上の点で、軸と障害物の距離(隙間)を測る
-        Cpts = np.array([[q.X, q.Y, q.Z] for q in (w.position_at(float(t)) for t in th)])
-        gap = (tree.query(Cpts)[0].min() - D / 2 - 0.4) if tree is not None else 99.0
-        print(f"arc: straight {info['s1']:.2f} + arc R {info['r']:.3f} ({info['theta']:.1f} deg, length {info['arc_len']:.2f}) + straight {info['s2']:.2f}; corner Q {info['Q'].round(3).tolist()}; axis-based gap {gap:.3f}")
-    else:
-        def best_for(st):
-            Lab = np.linalg.norm((P_e - st * t_e) - (p_start + st * t_s))
-            best = None
-            for f0 in np.linspace(0.2, 2.0, 37):
-                for f1 in np.linspace(0.2, 2.0, 37):
-                    _, Pc = spline_path(p_start, t_s, P_e, t_e, st, f0 * Lab, f1 * Lab)
-                    C, rmin_, ln = bezier_stats(Pc)
-                    gap = (tree.query(C)[0].min() - D / 2 - 0.4) if tree is not None else 99.0
-                    if rmin_ >= rmin_req and gap >= gap_req and (best is None or ln < best[0]):
-                        best = (ln, f0 * Lab, f1 * Lab, rmin_, gap)
-            return best
-
-        print("両端の直線部 → 芯線の長さ(直線 2 本を含む)・ベジェの最小 R・隙間:")
-        for st in (5, 10, 15, 20, 25, 30, 35):
-            bs = best_for(st)
-            print(f"  straight {st:2d}: " + (f"length {bs[0] + 2 * st:.2f}, min R {bs[3]:.2f}, gap {bs[4]:.3f}" if bs else "no solution"))
-        best = best_for(straight)
-        if best is None:
-            raise RuntimeError("条件(最小 R・隙間)を満たす解がない")
-        ln, k0, k1, rmin_, gap = best
-        w, Pc = spline_path(p_start, t_s, P_e, t_e, straight, k0, k1)
-        print(f"spline: straight {straight:g} + cubic Bezier + straight {straight:g}; tangent scales {k0:.2f}, {k1:.2f}; min bend R {rmin_:.2f} (required {rmin_req:g}); "
-              f"axis-based gap {gap:.3f}; Bezier length {ln:.3f}")
-    print(f"axis length {w.length:.3f}")
-    tube = U.const_d_tube(w, D, BP.WALL)
+    B, tB = P_e, -n_e
+    Q, sA, sB, (d, a, b) = CH.solve(A, tA, B, tB)
+    w, kap, clen = CH.wire(A, tA, B, tB, Q, d, a, b)
+    print(f"start {A.round(3).tolist()} dir {tA.round(3).tolist()}; end {END_NAME} {B.round(3).tolist()} travel {tB.round(3).tolist()}; apex Q {Q.round(3).tolist()} (A side {sA:.3f}, B side {sB:.3f})")
+    print(f"chevron: straight {sA - d:.3f} + symmetric quintic Bezier {clen:.3f} (d {d:.3f}, a {a:.3f}, b {b:.3f}) + straight {sB - d:.3f} = {w.length:.3f}; "
+          f"min bend R {1 / np.abs(kap).max():.2f}, curvature ends {kap[0]:.1e} / {kap[-1]:.1e}")
+    tube = U.const_d_tube(w, D, BP.WALL, np.array([0.0, 0.0, 1.0]))
     print(f"tube D {D:g} wall {BP.WALL:g}: valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
     print("clearance (<5 mm) of the outer surface:")
     B2.report_clearance(tube, others)
