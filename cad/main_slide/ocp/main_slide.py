@@ -1,6 +1,7 @@
 """主管抜差(main-slide)の設計。まず、モデル済みの部品(ベル・1番管・2番管・bb34・主管補助管 aux1/aux2・Bb 抜差・Bb 戻り)を全部出し、
 主管抜差の中管を 1 本置く: Bb 第 2 の中管と同じ長さ(INNER_TUBE_LEN)、補助管 2 の右側の口(終端、向き +X)の先へ GAP mm 離して同軸に。
-中管の先に主管頭(ピッチ BOW_PITCH の U 字管、主管頭平面の上、もう一方の直線は -Y 側)をつなぐ。
+中管の先に主管頭(ピッチ BOW_PITCH の U 字管、主管頭平面の上、もう一方の直線は -Y 側)をつなぎ、
+もう一方の直線にもう 1 つの中管(長さ INNER2_LEN)をはめる。
 
     uv run python cad/main_slide/ocp/main_slide.py
 """
@@ -18,7 +19,8 @@ sys.path[:0] = [str(ROOT / "cad/bb_return/ocp"), str(ROOT / "cad/main_aux_tube/o
                 str(ROOT / "cad/valves/ocp"), str(ROOT / "cad/bows/ocp"), str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
 GAP = 1.0  # 補助管 2 の口から中管の桂の側の端まで
-BOW_PITCH = 35.0  # 主管頭(U 字管)のピッチ(2026-11-24)
+BOW_PITCH = 50.0  # 主管頭(U 字管)のピッチ。35 → 50(2026-11-24)
+INNER2_LEN = 48.0  # 主管頭のもう一方の直線にはめる中管の長さ(2026-11-24)
 
 
 def hook(M, branch, others):
@@ -71,7 +73,18 @@ def hook(M, branch, others):
     print(f"main bow tube D {SU.INNER_TUBE_ID:g} wall {BP.WALL:g}: valid {bow.is_valid}, volume {sum(x.volume for x in bow.solids()):.2f}")
     print("clearance (main bow):")
     B2.report_clearance(bow, others)
-    return branch, p0 + [bow, ww], n0 + ["main_bow_wall", "main_bow_centerline"], c0 + ["#e0a020", "#ff2020"]
+    p0, n0, c0 = p0 + [bow, ww], n0 + ["main_bow_wall", "main_bow_centerline"], c0 + ["#e0a020", "#ff2020"]
+
+    # もう 1 つの中管(2026-11-24): 主管頭のもう一方の直線の端に、同軸で -X へ長さ INNER2_LEN。桂の側を主管頭へ、先端は -X 側
+    len2 = float(sys.argv[sys.argv.index("--len2") + 1]) if "--len2" in sys.argv else INNER2_LEN
+    Q1 = np.array([q1.X, q1.Y, q1.Z])
+    tip = Q1 - len2 * a
+    part2 = Pos(*tip) * (Rot(0, 0, 90) * SU.inner_tube_part(len2))
+    b2 = part2.bounding_box(optimal=False)
+    print(f"main-slide inner tube 2 (length {len2:g}): tip {tip.round(3).tolist()}, x {b2.min.X:.3f}..{b2.max.X:.3f}, y {b2.min.Y:.3f}..{b2.max.Y:.3f}, z {b2.min.Z:.3f}..{b2.max.Z:.3f}")
+    print("clearance (inner tube 2):")
+    B2.report_clearance(part2, others)
+    return branch, p0 + [part2], n0 + ["main_slide_inner_tube2"], c0 + ["#e0a020"]
 
 
 def main() -> None:
