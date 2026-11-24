@@ -1,4 +1,5 @@
-"""Bb 管の部品ごとの芯線長を CSV に書く。uv run python cad/bb_length/tools/make_lengths.py"""
+"""Bb 管の部品ごとの芯線長を CSV に書く。uv run python cad/bb_length/tools/make_lengths.py
+管の部品は、いまビューアに出している形(output/viewer_registry の芯線)で測る。先に main_slide.py を表示しておく。"""
 import sys, math
 import numpy as np
 from pathlib import Path
@@ -27,45 +28,31 @@ a_ring = math.pi/4*(12.8**2-12.0**2)
 f = max((f for f in k2.faces() if f.geom_type.name=="PLANE" and abs(f.area-a_ring)<0.5), key=lambda f:-f.normal_at().Y)
 F, uo = np.array(list(f.center())), np.array(list(f.normal_at()))
 print("F2_225 exit", F, uo)
-# bb34
-P0y = 10.0
-Q = F + (49.0 - F[2]) / uo[2] * uo
-pitch = 46.0  # bb34_u.PITCH(RISE 15 は変えない)
-_, i2 = ubows.u_bow(pitch, None, None)
-Ub = i2["curve_len"] + 2*ubows.LEG
-pst = np.array([25.0, Q[1], 49.0])
-rmax = min(np.linalg.norm(Q-pst), np.linalg.norm(F-Q))
-def Llen(r):
-    return np.linalg.norm(Q-pst) - r + np.linalg.norm(F-Q) - r + math.pi/2*r
-print("bb34 pitch", pitch, "U", Ub, "straight", 77.5, "L(R=rmax %.3f)"%rmax, Llen(rmax))
-bb34 = Ub + 77.5 + Llen(rmax)
+# 管の部品は、いまビューアに出している形の芯線(output/viewer_registry)から測る(2026-11-24。手で写した値が古くなるため)
+from build123d import import_brep
+REG = Path(R) / "output/viewer_registry"
+def reg_len(nm):
+    return import_brep(str(REG / f"{nm}.brep")).length
+def reg_x_extent(nm):
+    b = import_brep(str(REG / f"{nm}.brep")).bounding_box()
+    return b.max.X - b.min.X
+U50 = reg_len("branch2_U_centerline")
+Ub, bbL = reg_len("bb34_U_centerline"), reg_len("bb34_L_centerline")
+bb34_st = reg_x_extent("bb34_straight_wall")
 # 3-1 valves pass
 vp = 2*K + 2*K + (K + 17.5)
-# bb_return route: arc_path
-import bb_return as BR
-ps = np.array([127.021, -17.5, 34.0]); ts = np.array([0,1.0,0])
-pe = np.array([47.374, 12.374, 34.0]); te = np.array([-math.sqrt(.5), -math.sqrt(.5), 0])
-# exact numbers: U end x = 80 + 50 cos(phi)
-phi = math.asin((34-17)/50); ps[0] = 80 + 50*math.cos(phi)
-pe[0] = 35 + 17.5*math.cos(math.radians(45)); pe[1] = 17.5*math.sin(math.radians(45))
-wr, inf = BR.arc_path(ps, ts, pe, te, 20.0)
-route = wr.length
-print("route", route, "x start", ps[0])
-slide = 1 + 33 + U50 + 33 + 1
-bbr = slide + route
-# main aux
-import main_aux_split as MS
-E = np.array([59.0, -17.53, 20.689]);
-import main_aux as MA
-E, u = MA.f1_225_exit()
-print("E", E, u)
-S_end = np.array([95.0, -40.0, 80.348])
-Pm = np.array(MS.PRESET[:3]); tS = np.array([1.0,0,0])
-tm = MS.tm_of(Pm, E, u, S_end, tS)
-w1, n1, k1, c1 = MS.g2_piece(E, u, Pm, tm, MS.G2_PRESET["aux1"])
-w2, n2, k2_, c2 = MS.g2_piece(Pm, tm, S_end, tS, MS.G2_PRESET["aux2"])
-aux = w1.length + w2.length
-print("aux1", w1.length, "aux2", w2.length)
+chev, u315 = reg_len("bb_return_centerline"), reg_len("v4_f1_315_U_centerline")
+aux1, aux2 = reg_len("main_aux1_centerline"), reg_len("main_aux2_centerline")
+bow = reg_len("main_bow_centerline")
+sys.path.insert(0, R + "cad/main_slide/ocp")
+import main_slide as MSL
+import slide_u as SU
+sys.path.insert(0, R + "cad/mouthpipe/ocp")
+import mouthpipe as MP
+mp = reg_len("mouthpipe_centerline")
+MOUTHPIECE_OUT = 46.0  # マウスピースは 18 mm 差し込み、46 mm 飛び出る(2026-11-24。メンズールのマウスピース 64 = 46 + 18)
+print("mouthpipe", mp, "gap", MP.GAP, "mouthpiece out", MOUTHPIECE_OUT)
+print("U50", U50, "bb34 U", Ub, "L", bbL, "straight", bb34_st, "chevron", chev, "U315", u315, "aux1", aux1, "aux2", aux2, "bow", bow)
 
 
 import csv, re
@@ -75,17 +62,24 @@ OUT = Path(__file__).resolve().parent.parent
 parts = [
  ("bell", "ベル(リム→曲げ終わり)", bell, "cad/bell03 make_centerline.build_wire"),
  ("branch1", "1番管(2番管との接続点まで)", br1, "make_centerline.build_branch_wire"),
- ("branch2_U", "2番管 U(ピッチ50、直管5x2込み)", U50, "ubows.u_bow(50)"),
- ("v4_2f", "第4 2階: 315°枝管 K + 225°ねじり枝管(中心→端面、ローター中心経由)", v4_2f, "K=21.642, Kt=PULL+D1+L2=23.056"),
- ("bb34_U", "bb34 U(ピッチ46、直管5x2込み)", Ub, "ubows.u_bow"),
- ("bb34_straight", "bb34 直管(x -52.5→25)", 77.5, ""),
+ ("branch2_U", "2番管 U(直管5x2込み)", U50, "viewer_registry branch2_U_centerline"),
+ ("v4_2f", "第4 2階: 315°枝管 K + 225°ねじり枝管(中心→端面、ローター中心経由)", v4_2f, f"K={K:.3f}, Kt=PULL_2F+D1+L2={Kt:.3f}"),
+ ("bb34_U", "bb34 U(直管5x2込み)", Ub, "viewer_registry bb34_U_centerline"),
+ ("bb34_straight", "bb34 直管", bb34_st, "viewer_registry bb34_straight_wall の X 幅"),
+ ("bb34_L", "bb34 L 字管(G2)", bbL, "viewer_registry bb34_L_centerline"),
  ("valves321", "第3→第2→第1 ローター通過(2K+2K+K+17.5)", vp, "第1右上は直管17.5"),
- ("bb_slide", "Bb抜差(隙間1+中管33+U(50)+中管33+隙間1、抜き量0)", slide, "slide_u.py"),
- ("bb_return", "bb_return 経路(直線20+円弧+直線)", route, "bb_return.arc_path"),
+ ("bb_return", "bb_return 山形管(第1 F2-45 → U の端、G2)", chev, "viewer_registry bb_return_centerline"),
+ ("v4_f1_315_U", "第4 1階 315°枝管の U(ピッチ50、直管5x2込み)", u315, "viewer_registry v4_f1_315_U_centerline"),
  ("v4_1f", "第4 1階: 315°枝管 K + 225°ねじり枝管", v4_1f, ""),
- ("main_aux", "主管補助管 aux1+aux2(G2)", aux, "main_aux_split.g2_piece"),
- ("main_slide_gap", "主管抜差: 補助管2の口から中管までの隙間", 1.0, "main_slide.py GAP"),
- ("main_slide_inner", "主管抜差: 中管1本(Bb第2と同じ長さ)", 33.0, "main_slide.py"),
+ ("main_aux1", "主管補助管 1(直線+G2+直線)", aux1, "viewer_registry main_aux1_centerline"),
+ ("main_aux2", "主管補助管 2(直線+G2+直線)", aux2, "viewer_registry main_aux2_centerline"),
+ ("main_slide_gap", "主管抜差: 補助管2の口から中管までの隙間", MSL.GAP, "main_slide.py GAP"),
+ ("main_slide_inner", "主管抜差: 中管 1", MSL.INNER1_LEN, "main_slide.py INNER1_LEN"),
+ ("main_bow", "主管頭 U(直管5x2込み)", bow, "viewer_registry main_bow_centerline"),
+ ("main_slide_inner2", "主管抜差: 中管 2(末端まで)", MSL.INNER2_LEN, "main_slide.py INNER2_LEN"),
+ ("mouthpipe_gap", "吹込管: 中管 2 の末端から吹込管の太い端までの隙間", MP.GAP, "mouthpipe.py GAP"),
+ ("mouthpipe", "吹込管(太い端 → 入口の端面)", mp, "viewer_registry mouthpipe_centerline(mouthpipe_try.py の作図)"),
+ ("mouthpiece_out", "マウスピースの飛び出し(入口の端面 → リム。差し込み 18 は吹込管に含む)", MOUTHPIECE_OUT, "make_lengths.py MOUTHPIECE_OUT"),
 ]
 t = 0
 with open(OUT / "bb_lengths.csv", "w", newline="", encoding="utf-8") as f:
