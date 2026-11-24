@@ -32,6 +32,9 @@ PRESET = [69.4892, -34.5027, 39.6341, 13.6442, 11.4307]
 STRAIGHT_SPLIT = 4.0  # 分割点の前後の直線部
 STRAIGHT_E = 4.0  # E 側の直線部の下限
 STRAIGHT_END = 5.0  # 終端側の直線部の下限
+# 補助管 2 の中間の直線(+Z へ立ち上がる)の、-Y から見た(XZ への射影の)傾き。+Z から +X 側へ測って角度(負 = -X 側へ倒す)。None なら PRESET の半径のまま
+AUX2_MID_ANGLE = -10.0
+X_S_SPLIT = 90.0  # 右側の端点 S の x(分割前は main_aux.X_S = 92)。最後の 5 mm の直線はそのまま(S_end = S + 5 mm)
 
 
 def planar_path(A, d1, B, d2, exact, st_exact, st_min, n=120):
@@ -165,6 +168,30 @@ def csc_path(A, d1, B, d2, r, st_start, st_end, n=160):
                 viol=0.0)
 
 
+def mid_angle(p):
+    """csc_path の結果 p の中間の直線の、XZ への射影の +Z からの角度(+X 側が正、度)。中間の直線がなければ None。"""
+    lines = [q for q in p["segs"] if q[0] == "line"]
+    if len(lines) != 4:
+        return None
+    d = np.asarray(lines[1][2], float) - np.asarray(lines[1][1], float)
+    return math.degrees(math.atan2(d[0], d[2]))
+
+
+def r2_for_angle(Pm, tm, S_end, tS, target, lo=10.0, hi=15.2):
+    """補助管 2 の円弧の半径 r2 を、中間の直線の傾きが target(度)になるように決める(平面は変えない。二分法。lo は最小曲げ半径)。"""
+    f = lambda r: mid_angle(csc_path(Pm, tm, S_end, tS, r, STRAIGHT_SPLIT, STRAIGHT_END)) - target  # noqa: E731
+    a, b = lo, hi
+    if f(a) * f(b) > 0:
+        raise ValueError(f"傾き {target} 度になる半径が [{lo}, {hi}] にない(両端 {f(a) + target:.1f}, {f(b) + target:.1f})")
+    for _ in range(60):
+        m = 0.5 * (a + b)
+        if f(a) * f(m) <= 0:
+            b = m
+        else:
+            a = m
+    return 0.5 * (a + b)
+
+
 def tm_of(Pm, E, u, S_end, tS):
     """P_m での向き t_m: 平面 Π1(E, u, P_m を含む)と Π2(P_m, S_end, tS を含む)の交線の向き(E → S_end 側へ)。"""
     n1, n2 = np.cross(u, Pm - E), np.cross(tS, S_end - Pm)
@@ -232,7 +259,7 @@ def hook(M, branch, others):
     arg = lambda k, d: float(sys.argv[sys.argv.index(k) + 1]) if k in sys.argv else d  # noqa: E731
     r_min, gap_req = arg("--rmin", R_MIN), arg("--gap", GAP_REQ)
     E, u = MA.f1_225_exit()
-    S_end = ref[-1]
+    S_end = ref[-1] + np.array([X_S_SPLIT - MA.X_S, 0.0, 0.0])
     tS = np.array([1.0, 0.0, 0.0])
     print(f"E {E.round(3).tolist()}, S_end {S_end.round(3).tolist()}, reference axis length {np.linalg.norm(np.diff(ref, axis=0), axis=1).sum():.3f}")
 
@@ -259,6 +286,10 @@ def hook(M, branch, others):
         sol = cached("main_aux_split", [round(float(v), 4) for v in [*E, *S_end, r_min, gap_req, STRAIGHT_SPLIT, STRAIGHT_E, STRAIGHT_END]] + [len(others), "--dump" in sys.argv],
                      Path(__file__), build_solution)
     x = sol[:5]
+    if AUX2_MID_ANGLE is not None:
+        tm0 = tm_of(np.asarray(x[:3], float), E, u, S_end, tS)
+        x[4] = r2_for_angle(np.asarray(x[:3], float), tm0, S_end, tS, AUX2_MID_ANGLE, r_min)
+        print(f"aux2 middle straight tilted {AUX2_MID_ANGLE:g} deg from +Z (seen from -Y, + = toward +X): r2 = {x[4]:.4f}")
     Pm, tm, p1, p2 = build(x, E, u, S_end, tS)
     print(f"solution y(P_m, r1, r2) = {np.round(x, 4).tolist()}")
     print(f"split point P_m {Pm.round(3).tolist()}, direction t_m {tm.round(4).tolist()}")
