@@ -19,6 +19,7 @@ import mouthpipe as MP  # noqa: E402
 
 ANGLE_DEG = -20.0  # XY で、X 軸となす角(左へ向かう直線。y = M_y + tan(角) · (x - M_x))
 X_END = 0.0
+OFFSET_OUT = 6.0  # ベル内側の円の投影線を外側へずらす量(2026-11-24)
 
 
 def arg(k, d):
@@ -74,8 +75,20 @@ def hook(M, branch, others):
     proj = [Edge.make_spline([Vector(*q) for q in Qp[r[::4]]])]
     print(f"bell inner circle (D {2 * g['ri']:g}, centre {ctr.round(3).tolist()}) projected (y > 0): {Qp[r[0]].round(2).tolist()} -> {Qp[r[-1]].round(2).tolist()}, "
           f"x {Qp[r, 0].min():.2f}..{Qp[r, 0].max():.2f}, y max {Qp[r, 1].max():.2f}, distance to the plane {np.abs((Q[r] - P[0]) @ nrm).min():.2f}..{np.abs((Q[r] - P[0]) @ nrm).max():.2f}")
-    return (branch, p0 + [line] + proj, n0 + ["mouthpipe_try_line"] + ["bell_inner_circle_proj"],
-            c0 + ["#00c0ff"] + ["#ff00ff"] * len(proj))
+    # 投影線を、吹込管平面の中で外側(投影した円の中心から離れる向き)へ OFFSET_OUT オフセット
+    off_d = arg("--offset-out", OFFSET_OUT)
+    Qa = Qp[r]
+    tq = np.gradient(Qa, axis=0)
+    tq /= np.linalg.norm(tq, axis=1)[:, None]
+    nq = np.cross(nrm, tq)
+    cp_ = ctr - ((ctr - P[0]) @ nrm) * nrm
+    nq *= np.sign(((Qa - cp_) * nq).sum(axis=1))[:, None]  # 外向き
+    Qo = Qa + off_d * nq
+    keep = Qo[:, 1] > 0
+    proj.append(Edge.make_spline([Vector(*q) for q in Qo[keep][::4]]))
+    print(f"offset {off_d:g} outward (y > 0): x {Qo[keep, 0].min():.2f}..{Qo[keep, 0].max():.2f}, y max {Qo[keep, 1].max():.2f} at x {Qo[keep][np.argmax(Qo[keep, 1]), 0]:.2f}")
+    return (branch, p0 + [line] + proj, n0 + ["mouthpipe_try_line", "bell_inner_circle_proj", "bell_inner_circle_proj_off"],
+            c0 + ["#00c0ff", "#ff00ff", "#ff8000"])
 
 
 def main() -> None:
