@@ -142,6 +142,15 @@ def knuckle_2f_upper_right(pull: float = CONNECT_PULL):
     return Pos(X_VALVE4, 0, Z_F2) * Rot(0, 0, 45.0) * Pos(pull, 0, 0) * Rot(180, 0, 0) * knuckle(45.0)
 
 
+def twisted_knuckle_2f_upper_right(theta: float = THETA, pull: float = PULL_OUT):
+    """第 4 の 2 階・右上の孔(45°、+x,+y)の枝管(2026-11-25、knuckle_2f_upper_right の 45° 枝管から置き換え)。
+    v4-f1-225 と同じ折れ角 THETA = 52°・抜き量 PULL_OUT = √2 のねじった枝管で、出口の向きが (a, 0, c)(a, c > 0)になる捻じり角 ψ。
+    出口の軸 = cosθ·d1 + sinθ cosψ·d2 + sinθ sinψ·Z(d1 = 孔の軸、d2 = d1 を Z まわりに +90°)。y 成分 0 → cosψ = -cotθ、c > 0 → sinψ > 0。"""
+    th = math.radians(theta)
+    ps = math.degrees(math.acos(-1.0 / math.tan(th)))
+    return Pos(X_VALVE4, 0, Z_F2) * Rot(0, 0, 45.0) * Pos(pull, 0, 0) * Rot(ps, 0, 0) * knuckle(theta)
+
+
 def knuckle_1f_lower_right(pull: float = CONNECT_PULL):
     """第 4 の 1 階・右下の孔(315°、+x,-y)の 45° 枝管。1 本目 315°、折れは反時計回りに 45° → 2 本目は +X 向き(315° + 45° = 0°)。出口の端面 (x+17.5, -10, 17)。
     (2026-11-24 ユーザー指示: 出口を +X に向ける。以前は時計回りに折れて -Y 向き(knuckle_1f_lower_right_down、2026-11-23))"""
@@ -178,8 +187,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right(), twisted_knuckle_2f(), mirrored_twisted_knuckle_2f()]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_plusx", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_twisted_mirror"]
+    parts += [twisted_knuckle(th, ps), twisted_knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right(), twisted_knuckle_2f(), mirrored_twisted_knuckle_2f()]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_twisted", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_plusx", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_twisted_mirror"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 
