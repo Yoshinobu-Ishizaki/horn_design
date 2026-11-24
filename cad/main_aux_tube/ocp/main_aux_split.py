@@ -359,7 +359,17 @@ def hook(M, branch, others):
     print(f"aux1 tube: valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
     print("clearance aux1:")
     B2.report_clearance(tube, allo)
-    return branch, p0 + [tube, w], n0 + ["main_aux1_wall", "main_aux1_centerline"], c0 + ["#20c0a0", "#ff2020"]
+    p0, n0, c0 = p0 + [tube, w], n0 + ["main_aux1_wall", "main_aux1_centerline"], c0 + ["#20c0a0", "#ff2020"]
+    if "--aux1-alt" in sys.argv:  # 比べる形を並べて出す: "傾き,内角,dy,st1;..."(例 0,90,3.265,20.036)
+        for k, s_ in enumerate(sys.argv[sys.argv.index("--aux1-alt") + 1].split(";")):
+            ta, ia, da, sa = (float(v) for v in s_.split(","))
+            wa, ia_ = A1.hint_pipe(E, u, yz1, yz2, Pb, Nb, ia, ta, sa, da, 0.0)
+            print(f"aux1 alt {k}: tilt {ta:g}, inner {ia:g}, dy {da:g}, st1 {sa:g}: R {ia_['r']:.3f}, end straight {ia_['end_straight']:.3f}, "
+                  f"length {wa.length:.3f}, end F {ia_['F'].round(3).tolist()}")
+            p0 += [U.const_d_tube(wa, A1.D, BP.WALL, ia_["normal"]), wa]
+            n0 += [f"main_aux1_alt_i{ia:g}_wall", f"main_aux1_alt_i{ia:g}_centerline"]
+            c0 += [("#4080ff", "#c040ff", "#ff8020")[k % 3], "#ff2020"]
+    return branch, p0, n0, c0
 
 
 def _hook_split_g2(M, branch, others):

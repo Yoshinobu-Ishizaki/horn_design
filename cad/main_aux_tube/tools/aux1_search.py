@@ -99,6 +99,9 @@ def main():
     trees = {k: cKDTree(v) for k, v in obs.items()}
     print(f"obstacles ({time.time() - t0:.1f} s): " + ", ".join(f"{k} {len(v)}" for k, v in obs.items()), flush=True)
 
+    if "--g2" in sys.argv:
+        return g2_main(A1, E, u, Pb, Nb, yz1, yz2, obs, trees, minutes)
+
     def path(x):
         tilt, inner, dy, st = x
         w, info = A1.hint_pipe(E, u, yz1, yz2, Pb, Nb, inner, tilt, st, dy, 0.0)
@@ -169,6 +172,66 @@ def main():
         print(f"   --aux1-tilt {x[0]:.3f} --inner {x[1]:.3f} --dy {x[2]:.3f} --st1 {x[3]:.3f}; end F {info['F'].round(3).tolist()}, "
               f"end vs bell plane {float((info['F'] - Pb) @ Nb):+.3f}, direction {info['d'].round(4).tolist()}", flush=True)
     print(f"total {time.time() - t0:.0f} s")
+
+
+def bezier_min_radius(cp, n=400):
+    """7 次ベジェの最小曲率半径。"""
+    from math import comb
+
+    t = np.linspace(0, 1, n)[:, None]
+    m = len(cp) - 1
+    d1 = sum(comb(m - 1, i) * t**i * (1 - t) ** (m - 1 - i) * m * (cp[i + 1] - cp[i]) for i in range(m))
+    d2 = sum(comb(m - 2, i) * t**i * (1 - t) ** (m - 2 - i) * m * (m - 1) * (cp[i + 2] - 2 * cp[i + 1] + cp[i]) for i in range(m - 1))
+    k = np.linalg.norm(np.cross(d1, d2), axis=1) / np.linalg.norm(d1, axis=1) ** 3
+    return 1 / max(k.max(), 1e-12)
+
+
+def g2_main(A1, E, u, Pb, Nb, yz1, yz2, obs, trees, minutes):
+    """円弧を G2 スプライン(aux1_u.HINT_G2)に。変数: dy、d0、比 a・b・c(d1 = a·d0、d2 = b·d1、d3 = c·d2)。内角・傾きは既定。"""
+    from scipy.optimize import differential_evolution
+
+    START_MIN = 4.0  # 枝管側の直線の下限
+
+    def make(x):
+        dy, d0, a, b, c = x
+        g = (d0, a * d0, a * b * d0, a * b * c * d0)
+        w, info = A1.hint_pipe(E, u, yz1, yz2, Pb, Nb, A1.HINT_INNER, A1.HINT_TILT, A1.HINT_ST1, dy, 0.0, g2=g)
+        return w, info, g
+
+    def cost(x, detail=False):
+        try:
+            w, info, g = make(x)
+        except Exception:  # noqa: BLE001
+            return 1e3
+        n = max(200, int(w.length / 0.1))
+        p = np.array([tuple(w.position_at(t)) for t in np.linspace(0, 1, n)])
+        c = {k: float(t.query(p, distance_upper_bound=RO + 5)[0].min()) - RO for k, t in trees.items()}
+        rmin = bezier_min_radius(info["ctrl"])
+        cb, bb = c.get("bell03_branch1_wall", 99.0), c.get("bb34_L_wall", 99.0)
+        pen = 50 * max(0.0, BB34_RANGE[0] - bb) + 50 * max(0.0, bb - BB34_RANGE[1])
+        pen += sum(50 * max(0.0, OTHER_MIN - v) for k, v in c.items() if k not in ("bell03_branch1_wall", "bb34_L_wall"))
+        pen += 5 * max(0.0, R_MIN - rmin) + 20 * max(0.0, START_MIN - info["start_straight"])
+        f = -min(cb, 3.0) + pen
+        return (f, w, info, g, c, rmin) if detail else f
+
+    t1 = time.time()
+    s0 = A1.hint_pipe(E, u, yz1, yz2, Pb, Nb, A1.HINT_INNER, A1.HINT_TILT, A1.HINT_ST1, A1.HINT_DY, 0.0, g2=None)[1]["s"]
+    bounds = [(0.0, 7.0), (8.0, s0 - START_MIN + 3), (0.3, 0.95), (0.3, 0.95), (0.0, 0.95)]
+    r = differential_evolution(cost, bounds, seed=1, popsize=20, maxiter=1000, tol=1e-7, polish=False, init="sobol",
+                               callback=lambda xk, convergence=0.0: time.time() - t1 > minutes * 60)
+    f, w, info, g, c, rmin = cost(r.x, True)
+    print(f"[g2] {time.time() - t1:.0f} s, nfev {r.nfev}: dy {r.x[0]:.4f}, ctrl distances {np.round(g, 4).tolist()}; min R {rmin:.3f}, "
+          f"straights {info['start_straight']:.3f} / {info['end_straight']:.3f}, length {w.length:.3f}; cost {f:.4f}", flush=True)
+    print("   cloud clearance: " + ", ".join(f"{k} {v:.3f}" for k, v in sorted(c.items(), key=lambda kv: kv[1]) if v < 5), flush=True)
+    import bell_place as BP
+    import branch2_u as U
+    from build123d import import_brep
+
+    tube = U.const_d_tube(w, A1.D, BP.WALL, info["normal"])
+    reg = ROOT / "output/viewer_registry"
+    ex = {k: tube.distance_to(import_brep(str(reg / f"{k}.brep"))) for k in obs}
+    print("[g2] exact: " + ", ".join(f"{k} {v:.3f}" for k, v in sorted(ex.items(), key=lambda kv: kv[1]) if v < 5), flush=True)
+    print(f"   HINT_DY = {r.x[0]:.4f}, HINT_G2 = {tuple(round(float(v), 4) for v in g)}; end F {info['F'].round(3).tolist()}, valid {tube.is_valid}", flush=True)
 
 
 if __name__ == "__main__":

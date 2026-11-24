@@ -130,16 +130,22 @@ def arc_pipe(E, u, n, r=ARC_R, inner_deg=INNER_DEG, st=ST):
 # ヒントによる形(2026-11-24 ユーザー): +X 側から見て(YZ に投影)、1番管の末端の直線の軸と bb34 の直管の軸は点に見える。
 # その 2 点の中点を通り、第 4 の枝管側の軸(出口 E から u)となす内角が HINT_INNER の直線を考え、間を円弧で結ぶ。
 # 枝管側の直線は ST(円弧の R はそれで決まる)。できた形を、接続軸(u)まわりに HINT_TILT 回す。終点はベルの芯線の平面との交点。
-HINT_INNER = 80.0  # 120 → 90 → 80(2026-11-24)
-HINT_DY = 3.56  # 2 点の中点から、直線の通る点を +Y へずらす量(終点を 1番管から離す)。0 → 2.5(2026-11-24、bb34 L と 1番管の間の通り道へ) → 3.56(2026-11-24、探索 tools/aux1_search.py、傾き 0)
+HINT_INNER = 90.0  # 120 → 90 → 80 → 90(2026-11-24、傾き 0 で探索して採用)
+HINT_DY = 3.265  # 2 点の中点から、直線の通る点を +Y へずらす量(終点を 1番管から離す)。0 → 2.5(2026-11-24、bb34 L と 1番管の間の通り道へ) → 3.56(2026-11-24、探索 tools/aux1_search.py、傾き 0) → 3.265(内角 90)
 HINT_EXT = 0.0  # 終点をベルの芯線の平面より先(+Z 側)へ延ばす長さ(2026-11-24: 上げてよい)
-HINT_ST1 = 20.337  # 枝管側の直線(長くすると円弧の R が小さくなる)。5 → 20 → 12 → 20(2026-11-24、R を小さく) → 20.337(同)
+HINT_ST1 = 20.036  # 枝管側の直線(長くすると円弧の R が小さくなる)。5 → 20 → 12 → 20(2026-11-24、R を小さく) → 20.337(同) → 20.036(内角 90)
 HINT_TILT = 0.0  # 8 → 0(2026-11-24。+ に倒すと 1番管に近づき 5° で接触、- は採らない → 0 に決定)
 HINT_END_MIN = 5.0  # +Z 側の直線の最小長さ(ベルの平面が円弧の途中に来るときは、平面より上まで延ばす)
+# 円弧の代わりの G2 スプライン(2026-11-24): 角 Q からの距離 (d0, d1, d2, d3) の点を 2 本の直線の上に左右対称に置いた 7 次ベジェ
+# (制御点 Q-d0·u, Q-d1·u, Q-d2·u, Q-d3·u, Q+d3·d, Q+d2·d, Q+d1·d, Q+d0·d)。両端で 3 点が直線上にあるので端の曲率は 0(直線と G2)。
+# None なら円弧。値は tools/aux1_search.py --g2 で決める。
+HINT_G2 = None
 
 
-def hint_pipe(E, u, yz1, yz2, Pb, Nb, inner=HINT_INNER, tilt=HINT_TILT, st=HINT_ST1, dy=HINT_DY, ext=HINT_EXT):
-    """戻り値: (Wire, info)。yz1, yz2: 2 本の軸の YZ の点。"""
+def hint_pipe(E, u, yz1, yz2, Pb, Nb, inner=HINT_INNER, tilt=HINT_TILT, st=HINT_ST1, dy=HINT_DY, ext=HINT_EXT, g2="default"):
+    """戻り値: (Wire, info)。yz1, yz2: 2 本の軸の YZ の点。g2: (d0, d1, d2, d3) なら円弧の代わりに G2 スプライン(st は使わない)。"""
+    if isinstance(g2, str):
+        g2 = HINT_G2
     from build123d import Edge, Vector, Wire
 
     M2 = 0.5 * (np.asarray(yz1, float) + np.asarray(yz2, float)) + np.array([dy, 0.0])
@@ -175,5 +181,13 @@ def hint_pipe(E, u, yz1, yz2, Pb, Nb, inner=HINT_INNER, tilt=HINT_TILT, st=HINT_
     # 終点: 2 本目の直線とベルの平面の交点
     k = max(float((Pb - P2) @ Nb) / float(d3 @ Nb) + ext, HINT_END_MIN)
     F = P2 + k * d3
+    if g2 is not None:
+        d0, d1, d2_, d3_ = (float(v) for v in g2)
+        kq = max(float((Pb - Q3) @ Nb) / float(d3 @ Nb) + ext, d0 + HINT_END_MIN)  # Q から終点まで
+        F = Q3 + kq * d3
+        A, B = Q3 - d0 * u, Q3 + d0 * d3
+        cp = [Q3 - d * u for d in (d0, d1, d2_, d3_)] + [Q3 + d * d3 for d in (d3_, d2_, d1, d0)]
+        w = Wire([Edge.make_line(Vector(*E), Vector(*A)), Edge.make_bezier(*[Vector(*c) for c in cp]), Edge.make_line(Vector(*B), Vector(*F))])
+        return w, dict(M=M2, Q=Q3, r=r, d=d3, F=F, end_straight=kq - d0, start_straight=s - d0, normal=nrm, s=s, ctrl=np.array(cp))
     w = Wire([Edge.make_line(Vector(*E), Vector(*P1)), Edge.make_three_point_arc(Vector(*P1), Vector(*Pm), Vector(*P2)), Edge.make_line(Vector(*P2), Vector(*F))])
-    return w, dict(M=M2, Q=Q3, r=r, d=d3, F=F, end_straight=k, normal=nrm, s=s)
+    return w, dict(M=M2, Q=Q3, r=r, d=d3, F=F, end_straight=k, start_straight=st, normal=nrm, s=s)
