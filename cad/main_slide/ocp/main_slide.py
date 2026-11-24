@@ -28,6 +28,9 @@ def hook(M, branch, others):
     branch, p0, n0, c0 = BR.hook(M, branch, others)
     others = others + list(zip(n0, p0))
     d = dict(zip(n0, p0))
+    if "main_aux2_wall" not in d:  # 主管補助管 2 はやり直し中(2026-11-24)。中管は置かない
+        print("main-slide inner tube: skipped (no main_aux2)")
+        return branch, p0, n0, c0
     ref = d["main_aux2_wall"]
     # 補助管 2 の口 = 補助管 2 の芯線の終点(向き +X)
     q = d["main_aux2_centerline"].position_at(1.0)

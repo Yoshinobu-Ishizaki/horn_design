@@ -278,6 +278,90 @@ def solve(E, u, S_end, tS, ref, tree_obs, r_min, gap_req):
 
 
 def hook(M, branch, others):
+    """主管補助管(2026-11-24 やり直し)。前の aux1・aux2 は消した(_hook_split_g2 に残す)。補助管 1(第 4 側)は aux1_u.py。"""
+    import aux1_u as A1
+    import bb34_u
+    import bell_place as BP
+    import branch2_l as B2
+    import branch2_u as U
+    import main_aux as MA
+
+    branch, p0, n0, c0 = bb34_u.make_hook()(M, branch, others)  # 2番管・bb34 も一緒に出す
+    allo = others + list(zip(n0, p0)) + [("bell03_branch1_wall", branch)]
+    arg = lambda k, d: float(sys.argv[sys.argv.index(k) + 1]) if k in sys.argv else d  # noqa: E731
+    rot_deg = arg("--rot", A1.ROT_DEG)
+    E, u = MA.f1_225_exit()
+    n = A1.plane_normal(u, rot_deg)
+    Nb = M[:3, :3] @ np.array([0.0, 0.0, 1.0])  # ベルの芯線の平面の法線
+    Pb = B2.branch1_end(M)[0]
+
+    if "--trial" in sys.argv:
+        # 試し: 直線 5 + 円弧 R30 + 直線 5、内角 100°、もう一方は +Z 側(aux1_u.arc_pipe)。終点はベルの平面で止めない
+        r_arc, inner = arg("--R", A1.ARC_R), arg("--inner", A1.INNER_DEG)
+        if "--scan" in sys.argv:  # R ごとの bb34 L 字管・Bb1 外管 R との表面距離
+            dd = dict(allo)
+            for r_ in (30.0, 46.0):
+                w_, F_, tF_, _ = A1.arc_pipe(E, u, n, float(r_), inner)
+                t_ = U.const_d_tube(w_, A1.D, BP.WALL, n)
+                from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+                ex_ = BRepExtrema_DistShapeShape(t_.wrapped, dd["bb34_L_wall"].wrapped)
+                ex_.Perform()
+                pa, pb = ex_.PointOnShape1(1), ex_.PointOnShape2(1)
+                print(f"  nearest to bb34_L: aux1 ({pa.X():.2f}, {pa.Y():.2f}, {pa.Z():.2f}), bb34_L ({pb.X():.2f}, {pb.Y():.2f}, {pb.Z():.2f})")
+                print(f"scan R {r_:g}: bb34_L {t_.distance_to(dd['bb34_L_wall']):.3f}, Bb1_outer_R {t_.distance_to(dd['Bb1_outer_tube_R']):.3f}, "
+                      f"branch1 {t_.distance_to(branch):.3f}, end {F_.round(2).tolist()}, end vs bell plane {float((F_ - Pb) @ Nb):+.2f}")
+        w, F, tF, C = A1.arc_pipe(E, u, n, r_arc, inner)
+        print(f"aux1: plane normal {n.round(4).tolist()} (YZ plane rotated {rot_deg:g} deg about the exit axis {u.round(4).tolist()}); E {E.round(3).tolist()}")
+        print(f"aux1 (trial): straight {A1.ST:g} + arc R {r_arc:g} (turn {180 - inner:g} deg, inner angle {inner:g}) + straight {A1.ST:g} = {w.length:.3f}; "
+              f"end {F.round(3).tolist()}, direction {tF.round(4).tolist()}; arc centre {C.round(3).tolist()}; end vs bell plane {float((F - Pb) @ Nb):+.3f}")
+    else:  # ヒントの形(aux1_u.hint_pipe)
+        import valve4_knuckle as V
+
+        tilt, inner = arg("--tilt", A1.HINT_TILT), arg("--inner", A1.HINT_INNER)
+        yz1, yz2 = (float(Pb[1]), float(Pb[2])), V.BB34_STRAIGHT_YZ
+        st1 = arg("--st1", A1.HINT_ST1)
+        if "--scan" in sys.argv:  # 枝管側の直線の長さごとの R・隙間
+            dd = dict(allo)
+            for st_, dy_ in ([(float(x), arg("--dy", A1.HINT_DY)) for x in np.arange(12.5, 16.01, 0.5)] if "--scan-dy" not in sys.argv
+                             else [(st1, float(x)) for x in np.arange(0.0, 4.01, 0.5)]):
+                ext_ = arg("--ext", A1.HINT_EXT)
+                try:
+                    w_, i_ = A1.hint_pipe(E, u, yz1, yz2, Pb, Nb, inner, tilt, st_, dy_, ext_)
+                except Exception as e:  # noqa: BLE001
+                    print(f"scan st1 {st_:g}: {e}")
+                    continue
+                if i_["r"] <= 0:
+                    print(f"scan st1 {st_:g}: R {i_['r']:.2f} (no arc)")
+                    continue
+                t_ = U.const_d_tube(w_, A1.D, BP.WALL, i_["normal"])
+                print(f"scan st1 {st_:g} dy {dy_:g}: R {i_['r']:.3f}, end straight {i_['end_straight']:.3f}, length {w_.length:.3f}; bb34_L {t_.distance_to(dd['bb34_L_wall']):.3f}, "
+                      f"branch1 {t_.distance_to(branch):.3f}, Bb1_outer_R {t_.distance_to(dd['Bb1_outer_tube_R']):.3f}")
+        dy = arg("--dy", A1.HINT_DY)
+        ext = arg("--ext", A1.HINT_EXT)
+        w, info = A1.hint_pipe(E, u, yz1, yz2, Pb, Nb, inner, tilt, st1, dy, ext)
+        n = info["normal"]
+        F = info["F"]
+        print(f"aux1 (hint): YZ points branch1 {np.round(yz1, 3).tolist()}, bb34 straight {np.round(yz2, 3).tolist()}, middle {info['M'].round(3).tolist()}; inner angle {inner:g}, tilt {tilt:g} deg about the exit axis")
+        print(f"aux1 (hint): straight {st1:g} + arc R {info['r']:.3f} ({180 - inner:g} deg) + straight {info['end_straight']:.3f} = {w.length:.3f}; corner Q {info['Q'].round(3).tolist()}; "
+              f"end F {F.round(3).tolist()} (vs the bell plane {float((F - Pb) @ Nb):+.3f}), direction {info['d'].round(4).tolist()}; plane normal {n.round(4).tolist()}")
+    tube = U.const_d_tube(w, A1.D, BP.WALL, n)
+    if B2.checks_enabled():  # 近い部品との最近接点(どこで当たるか)
+        from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+        dd = dict(allo)
+        for nm in ("bb34_L_wall", "bell03_branch1_wall", "Bb1_outer_tube_R"):
+            ex_ = BRepExtrema_DistShapeShape(tube.wrapped, dd[nm].wrapped)
+            ex_.Perform()
+            pa = ex_.PointOnShape1(1)
+            print(f"  nearest to {nm}: {ex_.Value():.3f} at aux1 ({pa.X():.2f}, {pa.Y():.2f}, {pa.Z():.2f})")
+    print(f"aux1 tube: valid {tube.is_valid}, volume {sum(x.volume for x in tube.solids()):.2f}")
+    print("clearance aux1:")
+    B2.report_clearance(tube, allo)
+    return branch, p0 + [tube, w], n0 + ["main_aux1_wall", "main_aux1_centerline"], c0 + ["#20c0a0", "#ff2020"]
+
+
+def _hook_split_g2(M, branch, others):
+    """(使わない)2026-11-24 まで の分割版 aux1・aux2(G2)。新しい補助管 1 は aux1_u.py。"""
     import main_aux as MA
     import bell_place as BP
     import branch2_l as B2
