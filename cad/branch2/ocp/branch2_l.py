@@ -102,10 +102,10 @@ def obstacle_tree(others, M, step=0.5, reach=20.0):
 
     probe = Compound([Edge.make_bezier(*[Vector(*map(float, c)) for c in design(M, cut)["cp"]])
                       for cut in (80.0, 100.0, 120.0, 140.0, 160.0)])
-    pb = probe.bounding_box()
+    pb = probe.bounding_box(optimal=False)
     pts, used = [], []
     for name, s in others:
-        if name == START_SKIP or not hasattr(s, "faces") or not near(s.bounding_box(), pb, reach):
+        if name == START_SKIP or not hasattr(s, "faces") or not near(s.bounding_box(optimal=False), pb, reach):
             continue
         try:
             if s.distance_to(probe) > reach:
@@ -114,7 +114,7 @@ def obstacle_tree(others, M, step=0.5, reach=20.0):
             pass
         used.append(name)
         for f in s.faces():
-            if not near(f.bounding_box(), pb, reach):
+            if not near(f.bounding_box(optimal=False), pb, reach):
                 continue
             try:
                 ok = f.distance_to(probe) <= reach
@@ -214,10 +214,10 @@ def pipe(wire, face):
 
 def report_clearance(tube, others, near_mm=5.0):
     """2番管と、ほかの部品の表面最近接距離(near_mm 以内のものだけ表示)。"""
-    bb = tube.bounding_box()
+    bb = tube.bounding_box(optimal=False)
     out = []
     for name, s in others:
-        if not hasattr(s, "bounding_box") or not near(s.bounding_box(), bb, near_mm):
+        if not hasattr(s, "bounding_box") or not near(s.bounding_box(optimal=False), bb, near_mm):
             continue
         d = tube.distance_to(s)
         if d < near_mm:

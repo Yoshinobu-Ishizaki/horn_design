@@ -263,7 +263,7 @@ def aux_hook(M, branch, others):
     allo = others + [("bell03_branch1_wall", branch)]
     cl = B2.report_clearance(tube, allo)
     for n_, sh_ in allo:  # 食い込み(体積の重なり)の確認。接触だけなら 0
-        if n_ == "valve4_knuckle_F1_225_twisted" or not hasattr(sh_, "bounding_box") or not B2.near(sh_.bounding_box(), tube.bounding_box(), 0.1):
+        if n_ == "valve4_knuckle_F1_225_twisted" or not hasattr(sh_, "bounding_box") or not B2.near(sh_.bounding_box(optimal=False), tube.bounding_box(optimal=False), 0.1):
             continue
         inter = tube.intersect(sh_) if tube.distance_to(sh_) < 1e-6 else None
         ov = sum(x.volume for x in inter.solids()) if inter else 0.0

@@ -57,8 +57,12 @@ def u_placement(P0, a, pitch, z_plane, side):
 def hook(M, branch, others):
     import bb_return as BR
     import branch2_l as B2
-    import main_aux as MA
     from build123d import Pos
+
+    if "--unsplit" in sys.argv:
+        import main_aux as MA
+    else:
+        import main_aux_split as MA  # 主管補助管は分割版(aux1・aux2、G2 スプライン)
 
     branch, p0, n0, c0 = MA.hook(M, branch, others)  # 2番管・bb34・主管補助管も一緒に出す
     others = others + list(zip(n0, p0))

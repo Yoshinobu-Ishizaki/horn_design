@@ -123,7 +123,7 @@ def hook(M, branch, others):
     for n_, sh_ in others:
         if n_ in (END_NAME, "Bb_return_inner_tube_2") or n_.endswith("centerline") or not hasattr(sh_, "bounding_box"):
             continue
-        if B2.near(sh_.bounding_box(), nb, 0.0):
+        if B2.near(sh_.bounding_box(optimal=False), nb, 0.0):
             pts += tess_world(sh_, 0.2)
     tree = cKDTree(np.array(pts)) if pts else None
     print(f"obstacle vertices near the path: {len(pts)}")

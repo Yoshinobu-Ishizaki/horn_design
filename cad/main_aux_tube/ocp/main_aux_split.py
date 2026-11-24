@@ -306,7 +306,7 @@ def hook(M, branch, others):
         for n, sh in allo:
             if n in ("valve4_knuckle_F1_225_twisted",) or n.startswith("main_aux") or n.endswith("centerline") or not hasattr(sh, "bounding_box"):
                 continue
-            bb = sh.bounding_box()
+            bb = sh.bounding_box(optimal=False)
             if bb.max.X < lo[0] or bb.min.X > hi[0] or bb.max.Y < lo[1] or bb.min.Y > hi[1] or bb.max.Z < lo[2] or bb.min.Z > hi[2]:
                 continue
             pts += MA.tess_world(sh, 0.15)
