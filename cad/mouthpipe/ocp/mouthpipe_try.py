@@ -27,6 +27,10 @@ import mouthpipe as MP  # noqa: E402
 FOLLOW_X_END = -35.0  # オフセット曲線に沿う区間の左端の x(後で変えるかも)
 THICK_X_END = 0.0  # 太端側の直線の左端の x(直線は x >= 0 だけ)
 OFFSET_OUT = 6.0  # φ275 の投影を外側へずらす量
+ARC_CY = 0.0  # ガイドの円弧の中心の y(ワールド)
+ARC_LEFT_X = -55.0  # ガイドの円弧の左端の x(x = ARC_LEFT_X に接する)
+ARC_R = 120.0  # ガイドの円弧の半径(吹込管平面の中)
+ARC_X_MAX = 20.0  # ガイドの円弧は x < ARC_X_MAX だけ描く
 DEG = 7  # つなぎのベジェの次数
 LAST_JOIN = MP.ROOT / "output/cache/mouthpipe_try_join_last.npy"  # つなぎの前の解(最適化の出発点)
 
@@ -162,6 +166,26 @@ def fit_join(S, E, de, ne, kap):
     return x
 
 
+def join_leftmost(M, T0, Mp, nrm, fx, tx, off):
+    c = construct(M, T0, Mp, nrm, fx, tx, off)
+    x = fit_join(c["S2"], c["E2"], c["de"], c["ne"], c["kap"])
+    cp = join_ctrl(x, c["S2"], c["E2"], c["de"], c["ne"], c["kap"])
+    return float(T0[0] + MP.bez(cp, np.linspace(0, 1, 600))[:, 0].min())
+
+
+def fit_left(M, T0, Mp, nrm, fx, tx, off, target):
+    """fx・tx を同じ Δ だけずらして、つなぎの左端の x を target に(brentq)。"""
+    from scipy.optimize import brentq
+
+    f = lambda d: join_leftmost(M, T0, Mp, nrm, fx + d, tx + d, off) - target  # noqa: E731
+    lo, hi = 0.0, 10.0
+    while f(hi) < 0 and hi < 200:
+        lo, hi = hi, hi + 10.0
+    d = brentq(f, lo, hi, xtol=0.01)
+    print(f"fit-left: shift {d:.3f} -> follow end x {fx + d:.3f}, thick straight end x {tx + d:.3f} (join leftmost target {target:g})")
+    return fx + d, tx + d
+
+
 def edge_kappa(e, u):
     """エッジの u(0..1)での曲率(build123d、3 次元)。"""
     from OCP.BRepAdaptor import BRepAdaptor_Curve
@@ -183,6 +207,8 @@ def hook(M, branch, others):
     T = np.array([b2.min.X - MP.GAP, 0.5 * (b2.min.Y + b2.max.Y), 0.5 * (b2.min.Z + b2.max.Z)])
     T0, Mp, nrm, psi = fixed_ends(M, T)
     fx, tx, off = arg("--follow-x-end", FOLLOW_X_END), arg("--thick-x-end", THICK_X_END), arg("--offset-out", OFFSET_OUT)
+    if "--fit-left" in sys.argv:  # 両端(入口側のトリム位置・太端側の直線の左端)を同じだけ +X へずらし、つなぎの左端を目標の x に
+        fx, tx = fit_left(M, T0, Mp, nrm, fx, tx, off, arg("--fit-left", -50.0))
     c = construct(M, T0, Mp, nrm, fx, tx, off)
     to3 = lambda q: T0 + np.asarray(q)[..., 0, None] * c["e1"] + np.asarray(q)[..., 1, None] * c["e2"]  # noqa: E731
     key = [round(float(v), 6) for v in (*c["S2"], *c["E2"], *c["de"], *c["ne"], c["kap"])]
@@ -218,7 +244,17 @@ def hook(M, branch, others):
                for a, b in ((e_thick, e_join), (e_join, e_follow), (e_follow, e_entry))]
     print(f"tangent mismatch at the joints {np.round(tan_err, 5).tolist()} deg; plane flatness {np.abs([(Vector(*q) - Vector(*T0)).dot(Vector(*nrm)) for q in (to3(pts))]).max():.1e}")
     print(f"centerline: {e_thick.length:.3f} + {e_join.length:.3f} + {e_follow.length:.3f} + {e_entry.length:.3f} = {w.length:.3f}")
-    return branch, p0 + [w], n0 + ["mouthpipe_centerline"], c0 + ["#00c0ff"]
+    # ガイドの円弧(2026-11-24): 中央部の形を大雑把に決める。吹込管平面の中、中心の y = ARC_CY、x = ARC_LEFT_X に接する半径 ARC_R。x < ARC_X_MAX だけ
+    cy, xl, Ra, xm = arg("--arc-cy", ARC_CY), arg("--arc-left-x", ARC_LEFT_X), arg("--arc-r", ARC_R), arg("--arc-x-max", ARC_X_MAX)
+    vc = (cy - T0[1]) / c["e2"][1]  # 中心の平面の座標 v(ワールドの y = cy になる所)
+    cen2 = np.array([xl - T0[0] + Ra, vc])
+    a0 = math.acos(max(-1.0, min(1.0, (xm - xl - Ra) / Ra)))  # x = xm になる角度(中心から見て)
+    th = np.linspace(a0, 2 * np.pi - a0, 361)
+    arc_pts = to3(cen2 + Ra * np.c_[np.cos(th), np.sin(th)])
+    e_arc = Edge.make_three_point_arc(*[Vector(*arc_pts[i]) for i in (0, 180, -1)])  # 正確な円弧
+    print(f"guide arc: centre {to3(cen2).round(3).tolist()}, R {Ra:g} (in the plane), tangent to x = {xl:g}, drawn for x < {xm:g}: "
+          f"ends {arc_pts[0].round(3).tolist()} / {arc_pts[-1].round(3).tolist()}, leftmost {arc_pts[:, 0].min():.3f}, length {e_arc.length:.3f}")
+    return branch, p0 + [w, e_arc], n0 + ["mouthpipe_centerline", "mouthpipe_guide_arc"], c0 + ["#00c0ff", "#ff00ff"]
 
 
 def main() -> None:
