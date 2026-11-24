@@ -24,8 +24,9 @@
 ## 作業の置き場所
 
 - 設計の作業は `cad/<名前>/` で行う(名前は最初にユーザーに確認する。`cad/` には FreeCAD のファイルもある)。ビューアに出すモデルのコードは `cad/<名前>/ocp/`。`.py` が増えたら `lib/`・`parts/`・`tools/` に分ける。
+- 設計中のモデルは model202611(2026-11-25 整理)。モデル固有の部品は `cad/model202611/` の下に、組立のレベルごとに置く: `bb_length/`(全長の集計)、`valve_assy/`(植込組立: `bb34/`・`bb_return/`)、`body_assy/`(管体組立: `branch2/`・`main_aux_tube/`・`main_slide/`・`mouthpipe/`)。共通の部品(`cad/valves`・`cad/bell03`・`cad/bellscrew`・`cad/bows`・`cad/tubes`)は `cad/` の直下。モデルのスクリプトの import パスとルートは `cad/model202611/model_paths.py` で決める(深さを `parents[n]` で書かない)。部品を足したら `PARTS` に足す。
 - ベル(ベル + 1番管)は bell03 を使う(2026-11-23 採用。`cad/bell03/`、音程の検討は `impedance/bell03/`)。bell01・bell02 は比較用。
-- 吹込管は `cad/mouthpipe/ocp/mouthpipe_try.py` の作図を使う(2026-11-24 採用。芯線 496.927。作業記録は `cad/mouthpipe/worklog.md` の #15)。太い端は主管抜差の中管 2 の先、入口 M と吹込管平面は `mouthpipe.py` の解から取るので、上流が動けば形も追従する。`mouthpipe.py` の芯線(旧設計)は使わない。
+- 吹込管は `cad/model202611/body_assy/mouthpipe/ocp/mouthpipe_try.py` の作図を使う(2026-11-24 採用。芯線 496.927。作業記録は `cad/model202611/body_assy/mouthpipe/worklog.md` の #15)。太い端は主管抜差の中管 2 の先、入口 M と吹込管平面は `mouthpipe.py` の解から取るので、上流が動けば形も追従する。`mouthpipe.py` の芯線(旧設計)は使わない。
 - 管体組立の基本姿勢: ベル(ベル + 1番管)は、設計の座標(リム中心 (0,0)、直管部は +Y)をリム中心まわりに Z 軸で +15°(反時計回り)回した姿勢(`cad/bell03/tools/make_centerline.py` の `ASSEMBLY_ROT_Z`)。STEP と表示はこの姿勢で出す。
 - 作業フォルダに `worklog.md` を置き、作業履歴を時刻と一緒に記録する(書式は `.claude/skills/claude_cad_general/references/worklog_template.md`)。時刻は追記時に `date +%s` で取り、JST(`TZ=JST-9 date`)も併記する。推測で書かない。
 
