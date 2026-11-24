@@ -32,7 +32,7 @@ def inner_tube_part(length: float = INNER_TUBE_LEN):
     return Pos(0, -length / 2, 0) * (Rot(-90, 0, 0) * t)
 
 
-U_PITCH = 50.0  # 50 → 40 → 50(2026-11-24、組立し直し)
+U_PITCH = 40.0  # 50 → 40 → 50 → 40(2026-11-24、組立し直し)
 U_Z = 34.0  # もう一方の直線の軸が乗る 2 階の軸平面の高さ
 U_SIDE = +1  # 軸に垂直な水平方向: +1 で +X 側、-1 で -X 側(-X 側は Bb1 などの外管に当たる)
 

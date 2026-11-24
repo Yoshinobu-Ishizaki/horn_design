@@ -19,7 +19,7 @@ sys.path[:0] = [str(ROOT / "cad/bb_return/ocp"), str(ROOT / "cad/main_aux_tube/o
                 str(ROOT / "cad/valves/ocp"), str(ROOT / "cad/bows/ocp"), str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
 GAP = 1.0  # 補助管 2 の口から中管の桂の側の端まで
-BOW_PITCH = 50.0  # 主管頭(U 字管)のピッチ。35 → 50(2026-11-24)
+BOW_PITCH = 40.0  # 主管頭(U 字管)のピッチ。35 → 50 → 40(2026-11-24)
 INNER1_LEN = 23.0  # 補助管 2 の口の先の中管の長さ。33 → 23(2026-11-24、全長を減らす)
 INNER2_LEN = 38.0  # 主管頭のもう一方の直線にはめる中管の長さ。48 → 38(2026-11-24、同)
 
