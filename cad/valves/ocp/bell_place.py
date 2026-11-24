@@ -106,6 +106,13 @@ def placed_manual(B=-60.0, C=50.0, x=5.0):
 
 
 def tilt_about_top_tangent(M, deg):
+    """(下の _tilt_about_top_tangent の結果をディスクに覚える。M・deg・ソースが同じなら計算しない)"""
+    from shape_cache import memo_value
+
+    return memo_value("tilt", [np.asarray(M).round(9).tolist(), deg], Path(__file__), lambda: _tilt_about_top_tangent(M, deg))
+
+
+def _tilt_about_top_tangent(M, deg):
     """ベル芯線の +Y の最高点(そこの接線は X 方向)を通る X 軸に平行な直線を回転軸に、ベルと 1番管をまとめて回す。
     deg > 0 は、+X 側から見て時計回り(= X 軸まわりの右ねじの回転で -deg)。戻り値: (M2, 回転軸が通る点)。"""
     import bell03_surface as BS

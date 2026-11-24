@@ -46,6 +46,7 @@ def main() -> None:
     import assy_with_valves as AW
 
     AW.main(hook=hook)
+    __import__("shape_cache").phase("show done")
 
 
 if __name__ == "__main__":

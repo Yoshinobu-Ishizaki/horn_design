@@ -34,7 +34,7 @@ def main(hook=None) -> None:
     import bell_place as BP
     import bellscrew_thread as BT
     from bope_claude_cad.viewer import show
-    from shape_cache import cached
+    from shape_cache import cached, phase
     from valve_row import build_row_cached
 
     arg = lambda k, d: float(sys.argv[sys.argv.index(k) + 1]) if k in sys.argv else d  # noqa: E731
@@ -43,18 +43,25 @@ def main(hook=None) -> None:
     pulls = sys.argv[sys.argv.index("--pull") + 1].split(",") if "--pull" in sys.argv else []
     tip = arg("--tip", -10.0)
 
+    phase("start")
     info = cached("bell03_walls", BP.WALL, ROOT / "cad/bell03/ocp/bell03_surface.py", BP.build_bell)
+    phase("bell walls cached load")
     _, _, M, ctr = BP.placed_manual(B, C, X)
+    phase("placed_manual")
     if deg:
         M, _, _ = BP.tilt_about_top_tangent(M, deg)
+    phase("tilt")
     bell, branch = BP.apply(info["bell"], M), BP.apply(info["branch"], M)
+    phase("apply bell")
     screw = cached("bellscrew_outer", [BT.Y_SPLIT, BT.ARC_R, BT.D_BOT, BT.D_TOP], HERE / "bellscrew_thread.py",
                    lambda: BT.build(detail=False)[0])
+    phase("bell + screw loaded")
     screw = BP.apply(screw, M)
-    bb = screw.bounding_box()
+    bb = screw.bounding_box(optimal=False)
     print(f"bend circle centre {ctr.round(3).tolist()}, tilt {deg:g} deg; bellscrew centre "
           f"({bb.center().X:.1f}, {bb.center().Y:.1f}, {bb.center().Z:.1f})")
 
+    phase("screw placed")
     parts, names = [], []
     for v, (case, ks, nms) in build_row_cached().items():
         parts += [case] + ks
@@ -63,7 +70,9 @@ def main(hook=None) -> None:
     names += A.V4_NAMES
     from build123d import Pos
 
+    phase("valve rows + valve4 knuckles")
     slides = A.collect()
+    phase("slides collected")
     for tag in pulls:
         p = slides[tag]
         outer_end = p["outer_tube_L"].bounding_box().min.Y  # 外管の開いた端(つば側)
@@ -77,7 +86,9 @@ def main(hook=None) -> None:
     extra = ([], [], [])
     if hook is not None:
         others = list(zip(names, parts)) + [("bell03_bell_wall", bell), ("bellscrew", screw)]
+        phase("before hook")
         branch, *extra = hook(M, branch, others)
+        phase("hook done")
     parts += [bell, branch, screw]
     names += ["bell03_bell_wall", "bell03_branch1_wall", "bellscrew"]
     colors = [None] * len(parts)
@@ -89,6 +100,7 @@ def main(hook=None) -> None:
         parts += circles
         names += cnames
         colors += ["#00c0ff"] * len(circles)
+    phase("before show")
     show(*parts, names=names, colors=colors, reset_camera=Camera.KEEP)
 
 
