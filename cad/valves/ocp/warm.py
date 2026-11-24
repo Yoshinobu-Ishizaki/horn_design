@@ -1,7 +1,7 @@
 """重い import(build123d・OCP・scipy・ocp_vscode)を、毎回しないための常駐プロセス。
 
 起動(1 回だけ。動かしたままにする):
-    BOPE_VIEWER_PORT=3940 PYTHONDONTWRITEBYTECODE=1 uv run python cad/valves/ocp/warm.py serve
+    OCP_VIEWER_PORT=3940 PYTHONDONTWRITEBYTECODE=1 uv run python cad/valves/ocp/warm.py serve
 スクリプトの実行(システムの python3 で十分。標準ライブラリだけなので 0.05 秒で始まる):
     python3 cad/valves/ocp/warm.py run cad/valves/ocp/valve3_bb3_slide.py [引数...]
 常駐側が、受け取ったスクリプトを runpy で実行し、出力を返す。実行のたびに、cad/ 内の自分たちのモジュールは import し直す
@@ -24,7 +24,7 @@ def client(cmd, args):
         s.connect(SOCK)
     except OSError:
         sys.exit("常駐プロセスが動いていない。先に: uv run python cad/valves/ocp/warm.py serve")
-    req = {"cmd": cmd, "argv": args, "cwd": os.getcwd(), "env": {k: v for k, v in os.environ.items() if k.startswith(("BOPE", "NO_SHAPE"))}}
+    req = {"cmd": cmd, "argv": args, "cwd": os.getcwd(), "env": {k: v for k, v in os.environ.items() if k.startswith(("OCP_", "NO_SHAPE"))}}
     s.sendall((json.dumps(req) + "\n").encode())
     buf = b""
     while True:

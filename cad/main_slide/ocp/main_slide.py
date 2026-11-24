@@ -37,7 +37,7 @@ def hook(M, branch, others):
     part = Pos(*(P + np.array([GAP, 0.0, 0.0]))) * (Rot(0, 0, 90) * SU.inner_tube_part(length))
     bb = part.bounding_box(optimal=False)
     print(f"main-slide inner tube (length {length:g}): aux2 opening {P.round(3).tolist()}, x {bb.min.X:.3f}..{bb.max.X:.3f}, y {bb.min.Y:.3f}..{bb.max.Y:.3f}, z {bb.min.Z:.3f}..{bb.max.Z:.3f}; "
-          f"distance to aux2 {part.distance_to(ref):.3f}")
+          + (f"distance to aux2 {part.distance_to(ref):.3f}" if B2.checks_enabled() else ""))
     B2.report_clearance(part, others)
     return branch, p0 + [part], n0 + ["main_slide_inner_tube"], c0 + ["#e0a020"]
 

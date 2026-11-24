@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from math import comb
 from pathlib import Path
@@ -212,8 +213,15 @@ def pipe(wire, face):
     return Solid(mk.Shape())
 
 
+def checks_enabled():
+    """隙間・干渉の確認をするか。作図に必要ないので、既定では何も測らない。指示されたとき(--check、または環境変数 OCP_CHECK=1)だけ測る。"""
+    return "--check" in sys.argv or bool(os.environ.get("OCP_CHECK"))
+
+
 def report_clearance(tube, others, near_mm=5.0):
-    """2番管と、ほかの部品の表面最近接距離(near_mm 以内のものだけ表示)。"""
+    """2番管と、ほかの部品の表面最近接距離(near_mm 以内のものだけ表示)。--check のときだけ測る(既定は何もせず [] を返す)。"""
+    if not checks_enabled():
+        return []
     bb = tube.bounding_box(optimal=False)
     out = []
     for name, s in others:

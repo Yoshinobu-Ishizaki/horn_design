@@ -14,7 +14,7 @@ BREP に保存しても並びは変わらない。そのため、部品名と ID
     uv run python -m bope_claude_cad.pick_id --list
 
 保存先は、リポジトリルート(`pyproject.toml` か `.git` のある上位のフォルダ)の `output/viewer_registry/`。
-環境変数 `BOPE_VIEWER_REGISTRY` で変えられる。`output/` は git の管理外。
+環境変数 `OCP_VIEWER_REGISTRY` で変えられる。`output/` は git の管理外。
 部品名を付けずに表示した形は `Part_<番号>` の名前で記録する(ビューアーの名前と一致しないことがあるので、
 名前を付けて表示する)。
 """
@@ -48,7 +48,7 @@ def find_root(start: Path | None = None) -> Path:
 
 
 def registry_dir() -> Path:
-    env = os.environ.get("BOPE_VIEWER_REGISTRY")
+    env = os.environ.get("OCP_VIEWER_REGISTRY")
     return Path(env) if env else find_root() / "output" / "viewer_registry"
 
 
@@ -117,11 +117,11 @@ def bind_viewer(port: int, root: Path | str | None = None) -> Path:
 def resolve_viewer_port(root: Path | str | None = None) -> int | None:
     """表示先のビューアのポートを決める。決められなければ None(ビューアが無い)。複数あって決められなければ例外。
 
-    優先順位: 環境変数 BOPE_VIEWER_PORT(常駐プログラムが設定する)> このリポジトリに記録したポート(生きていれば)>
+    優先順位: 環境変数 OCP_VIEWER_PORT(常駐プログラムが設定する)> このリポジトリに記録したポート(生きていれば)>
     開いているビューアが1つだけならそれ(記録もする)。記録が無く、ビューアが複数あるときは、
     ocp_vscode の対話の問い合わせ(端末では止まる)にせず、`bind_viewer` を促す例外にする。
     """
-    env = os.environ.get("BOPE_VIEWER_PORT")
+    env = os.environ.get("OCP_VIEWER_PORT")
     if env:
         return int(env)
     f = (find_root(Path(root)) if root else find_root()) / "output" / "viewer_registry" / VIEWER_FILE

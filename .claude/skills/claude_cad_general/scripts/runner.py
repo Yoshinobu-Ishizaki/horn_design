@@ -6,7 +6,7 @@ build123d・ocp_vscode の読み込みを起動時の1回で済ませ、あと�
 
 **ビューアと対にする**: ウィンドウ(リポジトリ)ごとに別のビューアを開く運用で、表示先が混ざらないようにする。
 - 常駐プログラムは、ビューアのポート V ごとに1つ。待ち受けるポートは V + 1000(ビューア 3939 なら 4939)
-- 起動時に V に固定し、実行するスクリプトの `show` も V に表示する(環境変数 BOPE_VIEWER_PORT)
+- 起動時に V に固定し、実行するスクリプトの `show` も V に表示する(環境変数 OCP_VIEWER_PORT)
 - V のビューアが閉じたら、常駐プログラムも終わる
 - 頼む側は、スクリプトのあるリポジトリが使うビューアを選ぶ(`viewer.resolve_viewer_port`。
   `viewer bind <ポート>` で記録したもの。無ければ、開いているビューアが1つだけならそれ)
@@ -24,7 +24,7 @@ build123d・ocp_vscode の読み込みを起動時の1回で済ませ、あと�
 - 起動時に読み込んでおくのは build123d と ocp_vscode だけ(これらは直さないので持ち越す)
 - IDLE_SECONDS の間なにも頼まれなければ、自分で終わる
 - 1つずつ順に実行する(同時には実行しない)。スクリプトの出力は、頼んだ側に返す
-- 環境変数 `BOPE_RUNNER=0` で使わない(`run` を呼んでも、常駐させず今のプロセスで実行する)
+- 環境変数 `OCP_RUNNER=0` で使わない(`run` を呼んでも、常駐させず今のプロセスで実行する)
 - 常駐プログラムは pythonw で起動する(黒いウィンドウを出さない)。ログは `~/.bope_claude_cad/runner.log`
 """
 
@@ -91,7 +91,7 @@ def start(viewer_port: int, wait: int = 180) -> None:
     log = open(HOME / "runner.log", "a", encoding="utf-8")  # noqa: SIM115  子プロセスが持ち続ける
     flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
     kwargs = {"stdout": log, "stderr": log, "stdin": subprocess.DEVNULL,
-              "env": {**os.environ, "PYTHONIOENCODING": "utf-8", "BOPE_RUNNER": "1"}}
+              "env": {**os.environ, "PYTHONIOENCODING": "utf-8", "OCP_RUNNER": "1"}}
     try:
         subprocess.Popen(command, creationflags=flags | CREATE_BREAKAWAY_FROM_JOB, **kwargs)
     except OSError:
@@ -122,13 +122,13 @@ def running_viewers(candidates: range | list[int] | None = None) -> list[int]:
 def run_script(script: Path | str, cwd: Path | str | None = None) -> int:
     """スクリプトのあるリポジトリのビューアと対の常駐プログラムで実行し、出力を表示して終了コードを返す。
 
-    BOPE_RUNNER=0 なら、今のプロセスの外(子プロセス)で普通に実行する。
+    OCP_RUNNER=0 なら、今のプロセスの外(子プロセス)で普通に実行する。
     """
     resolve_viewer_port = _sibling("viewer").resolve_viewer_port
 
     script = Path(script).resolve()
     cwd = Path(cwd) if cwd else Path.cwd()
-    if os.environ.get("BOPE_RUNNER") == "0":
+    if os.environ.get("OCP_RUNNER") == "0":
         return subprocess.call([sys.executable, str(script)], cwd=cwd)
     try:
         viewer = resolve_viewer_port(script.parent)
@@ -187,7 +187,7 @@ def run(req: dict, viewer_port: int) -> dict:
     os.chdir(cwd)
     sys.argv = [str(script)]
     sys.path.insert(0, str(script.parent))  # python script.py と同じ
-    os.environ["BOPE_VIEWER_PORT"] = str(viewer_port)  # show などの表示先を、この常駐プログラムのビューアに固定する
+    os.environ["OCP_VIEWER_PORT"] = str(viewer_port)  # show などの表示先を、この常駐プログラムのビューアに固定する
     out = io.StringIO()
     code = 0
     try:
@@ -202,7 +202,7 @@ def run(req: dict, viewer_port: int) -> dict:
         out.write(traceback.format_exc())
         code = 1
     finally:
-        os.environ.pop("BOPE_VIEWER_PORT", None)
+        os.environ.pop("OCP_VIEWER_PORT", None)
         sys.argv = saved_argv
         os.chdir(saved_cwd)
         with contextlib.suppress(ValueError):
@@ -229,7 +229,7 @@ def serve(viewer_port: int, watch_viewer: bool = True) -> None:
     import build123d  # noqa: F401  読み込みを先に済ませておく
     import ocp_vscode  # noqa: F401
 
-    os.environ["BOPE_RUNNER"] = "1"
+    os.environ["OCP_RUNNER"] = "1"
     port = runner_port(viewer_port)
     try:
         server = socketserver.TCPServer(("127.0.0.1", port), Handler)

@@ -10,7 +10,7 @@
 - 記録には親を残す。index.json の current が「今の位置」。戻る(undo)は親へ、進む(redo)は
   今の位置から作られた一番新しい記録へ移る。戻ったあとに直して表示すると枝分かれする(前の記録は消さない)
 - 戻る・進む・restore は、スクリプトを写しの内容に書き換える。移る前に、まだ記録していない手直しは先に残す
-- 環境変数 `BOPE_HISTORY=0` で記録しない
+- 環境変数 `OCP_HISTORY=0` で記録しない
 
 コマンドライン(標準ライブラリだけで動く)::
 
@@ -20,7 +20,7 @@
     uv run python -m bope_claude_cad.history restore <スクリプト> <No> [--run]
 
 `--run` を付けると、移ったあとにそのスクリプトを実行して表示し直す。実行は常駐プログラム(runner.py)で行うので、
-2回目からは速い(約 4 秒 → 1.5 秒)。使いたくないときは環境変数 `BOPE_RUNNER=0`。
+2回目からは速い(約 4 秒 → 1.5 秒)。使いたくないときは環境変数 `OCP_RUNNER=0`。
 <スクリプト> の代わりに `--last` を付けると、最後に `show` したスクリプトを使う
 (`output/viewer_registry/last_script.json` に記録。VS Code 拡張 vscode-ext/bope-history のボタン・Ctrl+Z / Ctrl+Y が使う)。
 """
@@ -44,7 +44,7 @@ def _sibling(name: str):
 
 
 def enabled() -> bool:
-    return os.environ.get("BOPE_HISTORY", "1") != "0"
+    return os.environ.get("OCP_HISTORY", "1") != "0"
 
 
 def _folder(script: Path) -> Path:

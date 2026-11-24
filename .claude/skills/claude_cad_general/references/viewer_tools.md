@@ -13,7 +13,7 @@ llm_usage の `press-die-design-assist/cad/`(山田さんの OCP Viewer 改良)�
 ウィンドウ(リポジトリ)ごとに別の OCP Viewer を開く運用で、表示先が混ざらないようにする。
 
 - `bind_viewer(port)` / `python -m bope_claude_cad.viewer bind <ポート>`: このリポジトリが使うビューアのポートを `output/viewer_registry/viewer.json` に記録する。**バックエンドを起動するときに、同じポートで実行する**(`CLAUDE.md` の手順)。
-- `resolve_viewer_port()`: 環境変数 `BOPE_VIEWER_PORT` > 記録したポート(生きていれば)> 開いているビューアが 1 つだけならそれ(記録もする)。
+- `resolve_viewer_port()`: 環境変数 `OCP_VIEWER_PORT` > 記録したポート(生きていれば)> 開いているビューアが 1 つだけならそれ(記録もする)。
   複数あって未記録なら、ocp_vscode の対話の問い合わせ(端末で止まる)にせず、`bind` を促す例外にする。`viewer status` で確認できる。
 - `show`・`set_config`(`set_viewer_config` の代わり)・断面は、この表示先に出す。
 
@@ -46,7 +46,7 @@ llm_usage の `press-die-design-assist/cad/`(山田さんの OCP Viewer 改良)�
 
 - `python -m bope_claude_cad.history list|undo|redo|restore <スクリプト> [--run]`。`<スクリプト>` の代わりに `--last`(最後に `show` したスクリプト)。`--run` で、移ったあとに再実行して表示し直す。
 - 親を持つ木構造。戻ったあとに直すと枝分かれする(記録は消さない)。移る前の未記録の手直しは先に保存する。
-- **git に入れない**: `.history/` に `.gitignore`(中身 `*`)を自動で作る。リポジトリの `.gitignore` にも `.history/` を足してよい。`BOPE_HISTORY=0` で記録しない。
+- **git に入れない**: `.history/` に `.gitignore`(中身 `*`)を自動で作る。リポジトリの `.gitignore` にも `.history/` を足してよい。`OCP_HISTORY=0` で記録しない。
 - 写しはスクリプト 1 ファイルだけ。`lib/` など別モジュールの変更は残らない。
 - **OCP Viewer 上の Ctrl+Z(戻る)/ Ctrl+Y(進む)は、VS Code 拡張が必要**(ビューア自身には履歴の機能が無い)。拡張は `vscode-ext/bope-history/`
   (ボタンは出さない。2026-11-13 決定)。`uv run python vscode-ext/bope-history/make_vsix.py` で `.vsix` を作り、
@@ -58,7 +58,7 @@ llm_usage の `press-die-design-assist/cad/`(山田さんの OCP Viewer 改良)�
 
 build123d などの読み込みを起動時の 1 回で済ませ、スクリプトを常駐プログラムの中で実行する。`history ... --run` が使う(約 4 秒 → 1.5 秒)。
 
-- **ビューア 1 つにつき常駐プログラム 1 つ**。待ち受けは `ビューアのポート + 1000`。起動時にビューアへ固定し、スクリプトにも `BOPE_VIEWER_PORT` を渡す。ビューアが閉じたら(2 回続けて確認)終わる。4 時間使わなくても終わる。
-- `python -m bope_claude_cad.runner run <スクリプト>` / `start|stop|status [--viewer V]` / `list`。`BOPE_RUNNER=0` で使わない。
+- **ビューア 1 つにつき常駐プログラム 1 つ**。待ち受けは `ビューアのポート + 1000`。起動時にビューアへ固定し、スクリプトにも `OCP_VIEWER_PORT` を渡す。ビューアが閉じたら(2 回続けて確認)終わる。4 時間使わなくても終わる。
+- `python -m bope_claude_cad.runner run <スクリプト>` / `start|stop|status [--viewer V]` / `list`。`OCP_RUNNER=0` で使わない。
 - 実行のたびにスクリプトを読み直し、実行で新しく読み込まれたリポジトリ内のモジュールは終了後に捨てる(`lib/` の修正が次の実行に反映される)。
 - 起動は pythonw(黒い窓なし)。ログは `~/.bope_claude_cad/runner.log`。止めるのは `runner stop`。

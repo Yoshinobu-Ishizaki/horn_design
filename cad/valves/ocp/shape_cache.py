@@ -236,10 +236,10 @@ _T0 = [None, None]
 
 
 def phase(name):
-    """BOPE_TIMING=1(または --timing)のとき、前の phase からの経過秒を出す(重い所を探すための目印。何もしなければ無害)。"""
+    """OCP_TIMING=1(または --timing)のとき、前の phase からの経過秒を出す(重い所を探すための目印。何もしなければ無害)。"""
     import time
 
-    if not os.environ.get("BOPE_TIMING") and "--timing" not in sys.argv:
+    if not os.environ.get("OCP_TIMING") and "--timing" not in sys.argv:
         return
     now = time.time()
     if _T0[0] is None:
