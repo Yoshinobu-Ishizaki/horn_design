@@ -1,5 +1,5 @@
 """主管抜差(main-slide)の設計。まず、モデル済みの部品(ベル・1番管・2番管・bb34・主管補助管 aux1/aux2・Bb 抜差・Bb 戻り)を全部出し、
-主管抜差の中管を 1 本置く: Bb 第 2 の中管と同じ長さ(INNER_TUBE_LEN)、補助管 2 の右側の口(終端、向き +X)の先へ GAP mm 離して同軸に。
+主管抜差の中管を 1 本置く: 長さ INNER1_LEN(最初は Bb 第 2 の中管と同じ 33)、補助管 2 の右側の口(終端、向き +X)の先へ GAP mm 離して同軸に。
 中管の先に主管頭(ピッチ BOW_PITCH の U 字管、主管頭平面の上、もう一方の直線は -Y 側)をつなぎ、
 もう一方の直線にもう 1 つの中管(長さ INNER2_LEN)をはめる。
 
@@ -20,7 +20,8 @@ sys.path[:0] = [str(ROOT / "cad/bb_return/ocp"), str(ROOT / "cad/main_aux_tube/o
 
 GAP = 1.0  # 補助管 2 の口から中管の桂の側の端まで
 BOW_PITCH = 50.0  # 主管頭(U 字管)のピッチ。35 → 50(2026-11-24)
-INNER2_LEN = 48.0  # 主管頭のもう一方の直線にはめる中管の長さ(2026-11-24)
+INNER1_LEN = 23.0  # 補助管 2 の口の先の中管の長さ。33 → 23(2026-11-24、全長を減らす)
+INNER2_LEN = 38.0  # 主管頭のもう一方の直線にはめる中管の長さ。48 → 38(2026-11-24、同)
 
 
 def hook(M, branch, others):
@@ -39,7 +40,7 @@ def hook(M, branch, others):
     # 補助管 2 の口 = 補助管 2 の芯線の終点(向き +X)
     q = d["main_aux2_centerline"].position_at(1.0)
     P = np.array([q.X, q.Y, q.Z])
-    length = SU.INNER_TUBE_LEN
+    length = float(sys.argv[sys.argv.index("--len1") + 1]) if "--len1" in sys.argv else INNER1_LEN
     # inner_tube_part は軸 Y(先端 y = 0、桂側へ -Y)。Z まわり +90° で軸 +X(先端 x = 0、桂側へ +X)
     part = Pos(*(P + np.array([GAP, 0.0, 0.0]))) * (Rot(0, 0, 90) * SU.inner_tube_part(length))
     bb = part.bounding_box(optimal=False)

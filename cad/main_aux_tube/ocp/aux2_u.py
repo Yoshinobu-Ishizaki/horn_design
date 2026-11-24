@@ -2,7 +2,7 @@
 
 - 芯線の平面: 補助管 1 の出口の直線(F、向き d)を含み、YZ 平面に直交する(= X 方向を含む)平面。
 - 角 Q: 出口の直線と主管頭平面(main-bow-plane、z = MB_A·y + MB_B、X 方向に伸びる)の交点。
-- 口: Q から +X へ進み x = X_END で終わる。向き +X。主管頭平面の上。
+- 口: Q から +X へ進み x = X_END で終わる(None なら、口の側の直線がちょうど END_ST になる位置)。向き +X。主管頭平面の上。
 - 形: 7 次ベジェ 1 本(制御点は Q から 2 本の直線の上に 4 つずつ。両端で 3 点が直線上なので端の曲率 0 = 直線と G2)。
   両端に直線(少なくとも START_ST・END_ST = 5 mm、2026-11-24 ユーザー)。スプラインは Q から両側へ同じ長さ(短い方の脚に合わせ、
   長い方の脚の余りは直線にする)、制御点も左右対称。脚が違うと片側だけ曲率がだらだら残り、円弧らしくならないため。制御点の距離は、曲率の最大を小さく・曲率の変化をなめらかに(円弧に近く)決める。
@@ -15,7 +15,7 @@ from math import comb
 import numpy as np
 
 MB_A, MB_B = -0.06624, 77.6983  # 主管頭平面 z = MB_A·y + MB_B(worklog 1 件目、P2)
-X_END = 90.0  # 口の x(2026-11-24 ユーザー)
+X_END = None  # 口の x。90 → None(2026-11-24: 口の側の直線を 5 mm にするよう端点を左へ。x ≈ 81.355)
 START_ST = 5.0  # 補助管 1 とのつなぎ目(F)からの直線
 END_ST = 5.0  # 口の手前の直線
 D = 12.0
@@ -81,6 +81,8 @@ def aux2_pipe(F, d, x_end=X_END, start_st=START_ST, end_st=END_ST):
     g = np.array([0.0, -MB_A, 1.0])
     a = (MB_B - g @ F) / (g @ d)
     Q = F + a * d
+    if x_end is None:
+        x_end = Q[0] + (a - start_st) + end_st
     lx = x_end - Q[0]  # Q から口まで
     L = min(a - start_st, lx - end_st)  # スプラインの脚(両側同じ)
     if L <= 0:
