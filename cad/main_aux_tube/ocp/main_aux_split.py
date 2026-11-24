@@ -361,6 +361,19 @@ def hook(M, branch, others):
     print("clearance aux1:")
     B2.report_clearance(tube, allo)
     p0, n0, c0 = p0 + [tube, w], n0 + ["main_aux1_wall", "main_aux1_centerline"], c0 + ["#20c0a0", "#ff2020"]
+    if "--trial" not in sys.argv:  # 補助管 2(aux2_u): 補助管 1 の出口から 1 つの G2 スプラインで +X 向きの口(主管頭平面の上、x = X_END)へ
+        import aux2_u as A2
+
+        w2, i2 = A2.aux2_pipe(F, info["d"])
+        tube2 = U.const_d_tube(w2, A2.D, BP.WALL, i2["normal"])
+        print(f"aux2: start {np.round(F, 3).tolist()} dir {info['d'].round(4).tolist()}; corner Q {i2['Q'].round(3).tolist()} (on the main-bow plane); "
+              f"opening {i2['G'].round(3).tolist()} dir [1, 0, 0]; legs {np.round(i2['legs'], 3).tolist()}")
+        print(f"aux2: straight {i2['straights'][0]:g} + G2 spline {i2['spline_len']:.3f} (min R {i2['min_r']:.3f}, curvature peak at {i2['k_peak_at']:.2f} of the spline) "
+              f"+ straight {i2['straights'][1]:g} = {w2.length:.3f}; ratios {np.round(i2['ratios'], 4).tolist()}")
+        print(f"aux2 tube: valid {tube2.is_valid}, volume {sum(x.volume for x in tube2.solids()):.2f}")
+        print("clearance aux2:")
+        B2.report_clearance(tube2, allo + [("main_aux1_wall", tube)])
+        p0, n0, c0 = p0 + [tube2, w2], n0 + ["main_aux2_wall", "main_aux2_centerline"], c0 + ["#20a0c0", "#ff2020"]
     if "--aux1-alt" in sys.argv:  # 比べる形を並べて出す: "傾き,内角,dy,st1;..."(例 0,90,3.265,20.036)
         for k, s_ in enumerate(sys.argv[sys.argv.index("--aux1-alt") + 1].split(";")):
             ta, ia, da, sa = (float(v) for v in s_.split(","))
