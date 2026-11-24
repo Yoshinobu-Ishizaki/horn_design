@@ -344,7 +344,8 @@ def hook(M, branch, others):
         n = info["normal"]
         F = info["F"]
         print(f"aux1 (hint): YZ points branch1 {np.round(yz1, 3).tolist()}, bb34 straight {np.round(yz2, 3).tolist()}, middle {info['M'].round(3).tolist()}; inner angle {inner:g}, tilt {tilt:g} deg about the exit axis")
-        print(f"aux1 (hint): straight {st1:g} + arc R {info['r']:.3f} ({180 - inner:g} deg) + straight {info['end_straight']:.3f} = {w.length:.3f}; corner Q {info['Q'].round(3).tolist()}; "
+        mid_ = (f"G2 spline (7th-degree Bezier, ctrl distances from Q {np.round(A1.HINT_G2, 4).tolist()})" if "ctrl" in info else f"arc R {info['r']:.3f}")
+        print(f"aux1 (hint): straight {info['start_straight']:.3f} + {mid_} ({180 - inner:g} deg) + straight {info['end_straight']:.3f} = {w.length:.3f}; corner Q {info['Q'].round(3).tolist()}; "
               f"end F {F.round(3).tolist()} (vs the bell plane {float((F - Pb) @ Nb):+.3f}), direction {info['d'].round(4).tolist()}; plane normal {n.round(4).tolist()}")
     tube = U.const_d_tube(w, A1.D, BP.WALL, n)
     if B2.checks_enabled():  # 近い部品との最近接点(どこで当たるか)
