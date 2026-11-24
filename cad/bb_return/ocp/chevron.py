@@ -38,6 +38,16 @@ def curvature(P, n=600):
 
 
 def solve(A, tA, B, tB, st_min=ST_MIN):
+    """(下の _solve の結果をディスクに覚える。入力とソースが同じなら最適化しない。2026-11-24、表示を速くするため)"""
+    from pathlib import Path
+
+    from shape_cache import memo_value
+
+    key = [round(float(x), 9) for x in [*np.ravel(A), *np.ravel(tA), *np.ravel(B), *np.ravel(tB), st_min]]
+    return memo_value("chevron_solve", key, Path(__file__), lambda: _solve(A, tA, B, tB, st_min))
+
+
+def _solve(A, tA, B, tB, st_min=ST_MIN):
     from scipy.optimize import differential_evolution
 
     Q, sA, sB = corner(A, tA, B, tB)

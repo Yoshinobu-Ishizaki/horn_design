@@ -15,7 +15,8 @@ import socket
 import sys
 from pathlib import Path
 
-SOCK = str(Path(__file__).resolve().parents[3] / "output" / "cache" / "warm.sock")
+# 環境変数 OCP_WARM_SOCK で別のソケットにできる(worktree など、別のチェックアウトの常駐を並べて動かすとき)
+SOCK = os.environ.get("OCP_WARM_SOCK") or str(Path(__file__).resolve().parents[3] / "output" / "cache" / "warm.sock")
 
 
 def client(cmd, args):

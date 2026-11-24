@@ -49,6 +49,16 @@ def curvature(P2, n=600):
 
 
 def solve(p_start, ex, F, d2, st_min=ST_MIN, en_min=EN_MIN, seed=0):
+    """(下の _solve の結果をディスクに覚える。入力とソースが同じなら最適化しない。2026-11-24、表示を速くするため)"""
+    from pathlib import Path
+
+    from shape_cache import memo_value
+
+    key = [round(float(x), 9) for x in [*np.ravel(p_start), *np.ravel(ex), *np.ravel(F), *np.ravel(d2), st_min, en_min, seed]]
+    return memo_value("g2_l_solve", key, Path(__file__), lambda: _solve(p_start, ex, F, d2, st_min, en_min, seed))
+
+
+def _solve(p_start, ex, F, d2, st_min=ST_MIN, en_min=EN_MIN, seed=0):
     from scipy.optimize import differential_evolution
 
     ey, _ = frame(p_start, ex, F, d2)
