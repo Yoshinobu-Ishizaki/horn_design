@@ -52,9 +52,9 @@ def u_wire_local(pitch, rmin=None):
     return Wire([Edge.make_line((-p / 2, 0, 0), (-p / 2, leg, 0)), e2, Edge.make_line((p / 2, leg, 0), (p / 2, 0, 0))]), info
 
 
-def const_d_tube(w, d, wall):
+def const_d_tube(w, d, wall, plane_normal=None):
     """芯線 w(直線とスプラインの Wire)に沿う、内径 d 一定・板厚 wall の管。辺ごとに掃引してコンパウンドにする
-    (スプラインはフレネ。合体(+)は曲がり部が落ちるので使わない)。"""
+    (スプラインはフレネ。plane_normal を渡すと平面曲線の法線で固定(変曲点のある曲線用)。合体(+)は曲がり部が落ちるので使わない)。"""
     from build123d import Compound, Wire
 
     from bope_claude_cad.vss import variable_pipe_wall
@@ -62,7 +62,7 @@ def const_d_tube(w, d, wall):
     walls = []
     for e in w.edges():
         ss = np.linspace(0, e.length, 101)
-        kw = {} if e.geom_type.name == "LINE" else {"binormal": "frenet"}
+        kw = {} if e.geom_type.name == "LINE" else {"binormal": "frenet" if plane_normal is None else tuple(float(x) for x in plane_normal)}
         wl, _ = variable_pipe_wall(Wire([e]), ss, np.full_like(ss, d), wall, method="sweep", **kw)
         walls.append(wl)
     return Compound(walls)

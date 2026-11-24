@@ -192,6 +192,43 @@ def r2_for_angle(Pm, tm, S_end, tS, target, lo=10.0, hi=15.2):
     return 0.5 * (a + b)
 
 
+# G2 版(スプライン): 中間部を、平面内の 7 次ベジェ(両端の曲率 0 = 直線と G2 連続)にする。v = (a, db, c, dc, Q3x, Q3y, Q4x, Q4y, 始端側の直線長さ, 終端側の直線長さ)。
+# 制御点(平面内、始点 A = 曲線の始まり、向き d1 を x、終点 B・向き d2): P0=A, P1=A+a·d1, P2=A+(a+db)·d1, P3=Q3, P4=Q4, P5=B-(c+dc)·d2, P6=B-c·d2, P7=B。
+# tools/g2_fit.py(差分進化)の結果。aux1 は曲がる向き 1 つ・曲率の分布が左右対称に近い、aux2 は S 字で正負の曲率の山の大きさをそろえた形。
+G2_PRESET = {
+    "aux1": [5.4439, 6.3654, 0.8076, 2.6447, 13.8555, 3.2322, 15.7261, 4.3673, 4.1483, 4.1195],
+    "aux2": [2.701, 15.7766, 4.3108, 15.9607, 8.2956, 20.7862, 18.57, 8.0274, 5.1319, 5.242],
+}
+
+
+def g2_piece(A0, d1, B0, d2, v):
+    """A0(向き d1)→ B0(向き d2)の、直線 + 7 次ベジェ + 直線の Wire(各辺の点・平面の法線・曲率の最大/最小・曲線の長さ)。"""
+    from build123d import Edge, Vector, Wire
+
+    v = np.asarray(v, float)
+    st, en = v[8], v[9]
+    A, B = A0 + st * d1, B0 - en * d2
+    nrm = np.cross(d1, B0 - A0)
+    nrm /= np.linalg.norm(nrm)
+    ex, ey = d1, np.cross(nrm, d1)
+    G = np.array([(B - A) @ ex, (B - A) @ ey])
+    th = math.atan2(float(d2 @ ey), float(d2 @ ex))
+    a, db, c, dc = v[:4]
+    dd = np.array([math.cos(th), math.sin(th)])
+    P2 = np.array([[0, 0], [a, 0], [a + db, 0], v[4:6], v[6:8], G - (c + dc) * dd, G - c * dd, G])
+    P3 = [A + q[0] * ex + q[1] * ey for q in P2]
+    t = np.linspace(0, 1, 400)
+    from math import comb
+
+    n = 7
+    Bn = lambda k, tt: np.array([comb(k, i) * tt**i * (1 - tt) ** (k - i) for i in range(k + 1)]).T  # noqa: E731
+    d_1, d_2 = n * np.diff(P2, axis=0), n * (n - 1) * np.diff(P2, n=2, axis=0)
+    f1, f2 = Bn(n - 1, t) @ d_1, Bn(n - 2, t) @ d_2
+    kap = (f1[:, 0] * f2[:, 1] - f1[:, 1] * f2[:, 0]) / np.linalg.norm(f1, axis=1) ** 3
+    es = [Edge.make_line(Vector(*A0), Vector(*A)), Edge.make_bezier(*[Vector(*q) for q in P3]), Edge.make_line(Vector(*B), Vector(*B0))]
+    return Wire(es), nrm, kap, es[1].length
+
+
 def tm_of(Pm, E, u, S_end, tS):
     """P_m での向き t_m: 平面 Π1(E, u, P_m を含む)と Π2(P_m, S_end, tS を含む)の交線の向き(E → S_end 側へ)。"""
     n1, n2 = np.cross(u, Pm - E), np.cross(tS, S_end - Pm)
@@ -309,8 +346,17 @@ def hook(M, branch, others):
               if not (q[0] == "line" and np.linalg.norm(np.asarray(q[1]) - np.asarray(q[2])) < 1e-6)]
         return Wire(es)
 
-    w1_, w2_ = wire(p1), wire(p2)
-    t1, t2 = U.const_d_tube(w1_, D, BP.WALL), U.const_d_tube(w2_, D, BP.WALL)
+    if "--csc" in sys.argv:
+        w1_, w2_ = wire(p1), wire(p2)
+        t1, t2 = U.const_d_tube(w1_, D, BP.WALL), U.const_d_tube(w2_, D, BP.WALL)
+    else:  # G2 版(スプライン)
+        w1_, n1_, k1_, c1_ = g2_piece(E, u, Pm, tm, G2_PRESET["aux1"])
+        w2_, n2_, k2_, c2_ = g2_piece(Pm, tm, S_end, tS, G2_PRESET["aux2"])
+        t1, t2 = U.const_d_tube(w1_, D, BP.WALL, n1_), U.const_d_tube(w2_, D, BP.WALL, n2_)
+        for nm, w_, k_ in (("aux1", w1_, k1_), ("aux2", w2_, k2_)):
+            print(f"{nm} G2: length {w_.length:.3f}, curvature ends {k_[0]:.1e} / {k_[-1]:.1e}, min bend R {1 / np.abs(k_).max():.2f}, peaks {k_.max():+.4f} / {k_.min():+.4f}")
+        d1_ = cKDTree(ref).query(np.array([[q.X, q.Y, q.Z] for q in (w.position_at(float(s_)) for w in (w1_, w2_) for s_ in np.linspace(0, 1, 150))]))[0]
+        print(f"G2 deviation from the unsplit axis: max {d1_.max():.3f}, mean {d1_.mean():.3f}; total length {w1_.length + w2_.length:.3f}")
     for nm, t in (("aux1", t1), ("aux2", t2)):
         print(f"{nm} tube: valid {t.is_valid}, volume {sum(x_.volume for x_ in t.solids()):.2f}")
     print("clearance aux1:")
