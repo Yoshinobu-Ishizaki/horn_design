@@ -263,7 +263,7 @@ def hook(M, branch, others):
     gap = [(a @ 1 - b @ 0).length for a, b in zip(edges[:-1], edges[1:])]
     print(f"tangent mismatch at the joints {np.round(tan_err, 5).tolist()} deg, gaps max {max(gap):.1e}")
     print("centerline: " + " + ".join(f"{e.length:.3f}" for e in edges) + f" = {w.length:.3f}")
-    return branch, p0 + [w, e_arc], n0 + ["mouthpipe_centerline", "mouthpipe_guide_arc"], c0 + ["#00c0ff", "#ff00ff"]
+    return branch, p0 + [w], n0 + ["mouthpipe_centerline"], c0 + ["#00c0ff"]  # ガイドの円弧(e_arc)は非表示
 
 
 def main() -> None:
