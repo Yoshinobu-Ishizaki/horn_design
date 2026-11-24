@@ -39,6 +39,7 @@ def reg_x_extent(nm):
     b = import_brep(str(REG / f"{nm}.brep")).bounding_box()
     return b.max.X - b.min.X
 Ub, bbL = reg_len("bb34_U_centerline"), reg_len("bb34_L_centerline")
+b1L = reg_len("branch1_L_centerline")  # 1番管の細い端の L 字管(2026-11-24)
 bb34_st = reg_x_extent("bb34_straight_wall")
 # 3-1 valves pass
 vp = 2*K + 2*K + (K + 17.5)
@@ -55,13 +56,15 @@ print("bb34 U", Ub, "L", bbL, "straight", bb34_st, "chevron", chev, "U315", u315
 
 
 import csv, re
-v4_2f = Kt + Kt  # 2 階右下も 2 階左下の鏡像のねじった枝管(2026-11-24)
+Kt1 = V.PULL_OUT + KN.D1 + KN.L2  # v4-f1-225 と同じねじった枝管(抜き量 √2)
+v4_2f = Kt1 + Kt  # 2 階右下 = v4-f1-225 と同じ枝管の鏡像 Kt1、2 階左下 Kt(2026-11-24)
 v4_1f = K + V.PULL_OUT + KN.D1 + KN.L2
 OUT = Path(__file__).resolve().parent.parent
 parts = [
  ("bell", "ベル(リム→曲げ終わり)", bell, "cad/bell03 make_centerline.build_wire"),
- ("branch1", "1番管(今の芯線の末端まで。2番管を外したので第 4 とは未接続、2026-11-24)", br1, "make_centerline.build_branch_wire"),
- ("v4_2f", "第4 2階: 315°ねじり枝管(225°の鏡像)Kt + 225°ねじり枝管 Kt(中心→端面、ローター中心経由)", v4_2f, f"Kt=PULL_2F+D1+L2={Kt:.3f}"),
+ ("branch1", "1番管(L 字管との接続点まで)", br1, "make_centerline.build_branch_wire"),
+ ("branch1_L", "1番管の細い端の L 字管(第 4 の 2 階右下の枝管まで)", b1L, "viewer_registry branch1_L_centerline"),
+ ("v4_2f", "第4 2階: 315°ねじり枝管(v4-f1-225 と同じ形の鏡像)Kt1 + 225°ねじり枝管 Kt(中心→端面、ローター中心経由)", v4_2f, f"Kt1=PULL_OUT+D1+L2={Kt1:.3f}, Kt=PULL_2F+D1+L2={Kt:.3f}"),
  ("bb34_U", "bb34 U(直管5x2込み)", Ub, "viewer_registry bb34_U_centerline"),
  ("bb34_straight", "bb34 直管", bb34_st, "viewer_registry bb34_straight_wall の X 幅"),
  ("bb34_L", "bb34 L 字管(G2)", bbL, "viewer_registry bb34_L_centerline"),

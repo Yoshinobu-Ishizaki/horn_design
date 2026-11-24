@@ -1,21 +1,21 @@
 id,name,length_mm,cumulative_mm,note
 bell,ベル(リム→曲げ終わり),840.635,840.635,cad/bell03 make_centerline.build_wire
-branch1,1番管(2番管との接続点まで),565.579,1406.214,make_centerline.build_branch_wire
-branch2_U,2番管 U(直管5x2込み),90.701,1496.916,viewer_registry branch2_U_centerline
-v4_2f,第4 2階: 315°枝管 K + 225°ねじり枝管(中心→端面、ローター中心経由),45.234,1542.150,"K=21.642, Kt=PULL_2F+D1+L2=23.592"
-bb34_U,bb34 U(直管5x2込み),83.531,1625.681,viewer_registry bb34_U_centerline
-bb34_straight,bb34 直管,77.500,1703.181,viewer_registry bb34_straight_wall の X 幅
-bb34_L,bb34 L 字管(G2),46.394,1749.575,viewer_registry bb34_L_centerline
-valves321,第3→第2→第1 ローター通過(2K+2K+K+17.5),125.711,1875.286,第1右上は直管17.5
-bb_return,bb_return 山形管(第1 F2-45 → U の端、G2),44.267,1919.553,viewer_registry bb_return_centerline
-v4_f1_315_U,第4 1階 315°枝管の U(ピッチ 40、直管5x2込み),73.139,1992.692,viewer_registry v4_f1_315_U_centerline
-v4_1f,第4 1階: 315°枝管 K + 225°ねじり枝管,44.698,2037.390,
-main_aux1,主管補助管 1(直線+G2+直線),54.817,2092.208,viewer_registry main_aux1_centerline
-main_aux2,主管補助管 2(直線+G2+直線),37.636,2129.844,viewer_registry main_aux2_centerline
-main_slide_gap,主管抜差: 補助管2の口から中管までの隙間,1.000,2130.844,main_slide.py GAP
-main_slide_inner,主管抜差: 中管 1,23.000,2153.844,main_slide.py INNER1_LEN
-main_bow,主管頭 U(直管5x2込み),73.139,2226.983,viewer_registry main_bow_centerline
-main_slide_inner2,主管抜差: 中管 2(末端まで),38.000,2264.983,main_slide.py INNER2_LEN
-mouthpipe_gap,吹込管: 中管 2 の末端から吹込管の太い端までの隙間,1.000,2265.983,mouthpipe.py GAP
-mouthpipe,吹込管(太い端 → 入口の端面),495.851,2761.834,viewer_registry mouthpipe_centerline(mouthpipe_try.py の作図)
-mouthpiece_out,マウスピースの飛び出し(入口の端面 → リム。差し込み 18 は吹込管に含む),46.000,2807.834,make_lengths.py MOUTHPIECE_OUT
+branch1,1番管(L 字管との接続点まで),499.219,1339.854,make_centerline.build_branch_wire
+branch1_L,1番管の細い端の L 字管(第 4 の 2 階右下の枝管まで),83.864,1423.718,viewer_registry branch1_L_centerline
+v4_2f,第4 2階: 315°ねじり枝管(v4-f1-225 と同じ形の鏡像)Kt1 + 225°ねじり枝管 Kt(中心→端面、ローター中心経由),46.648,1470.367,"Kt1=PULL_OUT+D1+L2=23.056, Kt=PULL_2F+D1+L2=23.592"
+bb34_U,bb34 U(直管5x2込み),83.531,1553.898,viewer_registry bb34_U_centerline
+bb34_straight,bb34 直管,77.500,1631.398,viewer_registry bb34_straight_wall の X 幅
+bb34_L,bb34 L 字管(G2),46.394,1677.792,viewer_registry bb34_L_centerline
+valves321,第3→第2→第1 ローター通過(2K+2K+K+17.5),125.711,1803.502,第1右上は直管17.5
+bb_return,bb_return 山形管(第1 F2-45 → U の端、G2),44.267,1847.769,viewer_registry bb_return_centerline
+v4_f1_315_U,第4 1階 315°枝管の U(ピッチ 40、直管5x2込み),73.139,1920.909,viewer_registry v4_f1_315_U_centerline
+v4_1f,第4 1階: 315°枝管 K + 225°ねじり枝管,44.698,1965.607,
+main_aux1,主管補助管 1(直線+G2+直線),56.809,2022.416,viewer_registry main_aux1_centerline
+main_aux2,主管補助管 2(直線+G2+直線),37.547,2059.963,viewer_registry main_aux2_centerline
+main_slide_gap,主管抜差: 補助管2の口から中管までの隙間,1.000,2060.963,main_slide.py GAP
+main_slide_inner,主管抜差: 中管 1,23.000,2083.963,main_slide.py INNER1_LEN
+main_bow,主管頭 U(直管5x2込み),73.139,2157.102,viewer_registry main_bow_centerline
+main_slide_inner2,主管抜差: 中管 2(末端まで),38.000,2195.102,main_slide.py INNER2_LEN
+mouthpipe_gap,吹込管: 中管 2 の末端から吹込管の太い端までの隙間,1.000,2196.102,mouthpipe.py GAP
+mouthpipe,吹込管(太い端 → 入口の端面),496.927,2693.029,viewer_registry mouthpipe_centerline(mouthpipe_try.py の作図)
+mouthpiece_out,マウスピースの飛び出し(入口の端面 → リム。差し込み 18 は吹込管に含む),46.000,2739.029,make_lengths.py MOUTHPIECE_OUT
