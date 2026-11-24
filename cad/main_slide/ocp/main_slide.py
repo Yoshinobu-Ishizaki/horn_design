@@ -1,5 +1,6 @@
 """主管抜差(main-slide)の設計。まず、モデル済みの部品(ベル・1番管・2番管・bb34・主管補助管 aux1/aux2・Bb 抜差・Bb 戻り)を全部出し、
 主管抜差の中管を 1 本置く: Bb 第 2 の中管と同じ長さ(INNER_TUBE_LEN)、補助管 2 の右側の口(終端、向き +X)の先へ GAP mm 離して同軸に。
+中管の先に主管頭(ピッチ BOW_PITCH の U 字管、主管頭平面の上、もう一方の直線は -Y 側)をつなぐ。
 
     uv run python cad/main_slide/ocp/main_slide.py
 """
@@ -17,6 +18,7 @@ sys.path[:0] = [str(ROOT / "cad/bb_return/ocp"), str(ROOT / "cad/main_aux_tube/o
                 str(ROOT / "cad/valves/ocp"), str(ROOT / "cad/bows/ocp"), str(ROOT / "cad/bell03/ocp"), str(ROOT / "cad/bell03/tools")]
 
 GAP = 1.0  # 補助管 2 の口から中管の桂の側の端まで
+BOW_PITCH = 35.0  # 主管頭(U 字管)のピッチ(2026-11-24)
 
 
 def hook(M, branch, others):
@@ -42,7 +44,34 @@ def hook(M, branch, others):
     print(f"main-slide inner tube (length {length:g}): aux2 opening {P.round(3).tolist()}, x {bb.min.X:.3f}..{bb.max.X:.3f}, y {bb.min.Y:.3f}..{bb.max.Y:.3f}, z {bb.min.Z:.3f}..{bb.max.Z:.3f}; "
           + (f"distance to aux2 {part.distance_to(ref):.3f}" if B2.checks_enabled() else ""))
     B2.report_clearance(part, others)
-    return branch, p0 + [part], n0 + ["main_slide_inner_tube"], c0 + ["#e0a020"]
+    p0, n0, c0 = p0 + [part], n0 + ["main_slide_inner_tube"], c0 + ["#e0a020"]
+
+    # 主管頭(2026-11-24): ピッチ BOW_PITCH の U 字管を中管の先(+X 側の端、軸 +X)につなぐ。U の面は主管頭平面
+    # (z = MB_A·y + MB_B、X 方向を含む)。もう一方の直線は -Y 側。
+    import aux2_u as A2
+    import bell_place as BP
+    import branch2_u as U
+
+    pitch = float(sys.argv[sys.argv.index("--bow-pitch") + 1]) if "--bow-pitch" in sys.argv else BOW_PITCH
+    P0 = np.array([bb.max.X, P[1], P[2]])  # 中管の先の端面の中心
+    a = np.array([1.0, 0.0, 0.0])
+    n = -np.array([0.0, 1.0, A2.MB_A]) / np.hypot(1.0, A2.MB_A)  # 主管頭平面の中で軸に垂直、-Y 側
+    R = np.column_stack([n, a, np.cross(n, a)])
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = P0 - R @ np.array([-pitch / 2, 0.0, 0.0])
+    w, info = U.u_wire_local(pitch)
+    ww = BP.apply(w, T)
+    q1, t1 = ww.position_at(1.0), ww.tangent_at(1.0)
+    on_plane = lambda q: q.Z - (A2.MB_A * q.Y + A2.MB_B)  # noqa: E731
+    print(f"main bow (U pitch {pitch:g}): start {P0.round(3).tolist()} (vs main-bow plane {on_plane(ww.position_at(0.0)):+.4f}), to the other leg {n.round(4).tolist()}; "
+          f"curve {info['curve_len']:.3f} + legs 2 x 5 = {w.length:.3f}, min bend R {info['rmin']:.2f}, height {info['h']:.2f}")
+    print(f"main bow other leg end ({q1.X:.3f}, {q1.Y:.3f}, {q1.Z:.3f}) (vs main-bow plane {on_plane(q1):+.4f}), direction ({t1.X:.3f}, {t1.Y:.3f}, {t1.Z:.3f})")
+    bow = BP.apply(U.const_d_tube(w, SU.INNER_TUBE_ID, BP.WALL), T)
+    print(f"main bow tube D {SU.INNER_TUBE_ID:g} wall {BP.WALL:g}: valid {bow.is_valid}, volume {sum(x.volume for x in bow.solids()):.2f}")
+    print("clearance (main bow):")
+    B2.report_clearance(bow, others)
+    return branch, p0 + [bow, ww], n0 + ["main_bow_wall", "main_bow_centerline"], c0 + ["#e0a020", "#ff2020"]
 
 
 def main() -> None:
