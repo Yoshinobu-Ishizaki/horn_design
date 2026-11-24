@@ -374,6 +374,17 @@ def hook(M, branch, others):
         print("clearance aux2:")
         B2.report_clearance(tube2, allo + [("main_aux1_wall", tube)])
         p0, n0, c0 = p0 + [tube2, w2], n0 + ["main_aux2_wall", "main_aux2_centerline"], c0 + ["#20a0c0", "#ff2020"]
+        # 補助管 1・2 のつなぎ目の桂 L8(2026-11-24): 幅の中心をつなぎ目 F に、軸は出口の向き d
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tubes/ocp"))
+        import ferrule as FE
+        from build123d import Plane
+
+        fl = 8
+        fer = Plane(origin=tuple(F - fl / 2 * info["d"]), z_dir=tuple(info["d"])).location * FE.ferrule(fl)
+        print(f"aux1-aux2 joint ferrule L{fl}: centre {np.round(F, 3).tolist()}, axis {info['d'].round(4).tolist()}, OD {FE.OD:g}")
+        print("clearance joint ferrule:")
+        B2.report_clearance(fer, allo)
+        p0, n0, c0 = p0 + [fer], n0 + ["main_aux_joint_ferrule"], c0 + ["#e0a020"]
     if "--aux1-alt" in sys.argv:  # 比べる形を並べて出す: "傾き,内角,dy,st1;..."(例 0,90,3.265,20.036)
         for k, s_ in enumerate(sys.argv[sys.argv.index("--aux1-alt") + 1].split(";")):
             ta, ia, da, sa = (float(v) for v in s_.split(","))
