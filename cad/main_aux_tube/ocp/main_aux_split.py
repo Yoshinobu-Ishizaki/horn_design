@@ -317,9 +317,11 @@ def hook(M, branch, others):
     else:  # ヒントの形(aux1_u.hint_pipe)
         import valve4_knuckle as V
 
-        tilt, inner = arg("--tilt", A1.HINT_TILT), arg("--inner", A1.HINT_INNER)
+        tilt, inner = arg("--aux1-tilt", A1.HINT_TILT), arg("--inner", A1.HINT_INNER)
         yz1, yz2 = (float(Pb[1]), float(Pb[2])), V.BB34_STRAIGHT_YZ
         st1 = arg("--st1", A1.HINT_ST1)
+        if "--dump-aux1" in sys.argv:  # 探索用(tools/aux1_search.py): 端点・軸・ベルの平面
+            np.savez(sys.argv[sys.argv.index("--dump-aux1") + 1], E=E, u=u, Pb=Pb, Nb=Nb, yz1=np.array(yz1), yz2=np.array(yz2))
         if "--scan" in sys.argv:  # 枝管側の直線の長さごとの R・隙間
             dd = dict(allo)
             for st_, dy_ in ([(float(x), arg("--dy", A1.HINT_DY)) for x in np.arange(12.5, 16.01, 0.5)] if "--scan-dy" not in sys.argv
