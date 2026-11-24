@@ -28,6 +28,7 @@ FOLLOW_X_END = -35.0  # オフセット曲線に沿う区間の左端の x(後�
 THICK_X_END = 0.0  # 太端側の直線の左端の x(直線は x >= 0 だけ)
 OFFSET_OUT = 6.0  # φ275 の投影を外側へずらす量
 DEG = 7  # つなぎのベジェの次数
+LAST_JOIN = MP.ROOT / "output/cache/mouthpipe_try_join_last.npy"  # つなぎの前の解(最適化の出発点)
 
 
 def arg(k, d):
@@ -149,8 +150,16 @@ def fit_join(S, E, de, ne, kap):
 
     H = float(np.linalg.norm(E - S))
     bounds = [(1.0, H), (1.0, H), (1.0, H), (1.0, H), (-2 * H, 0.0), (-0.5 * H, 1.5 * H), (-2 * H, 0.0), (-0.5 * H, 1.5 * H)]
-    r = differential_evolution(cost, bounds, seed=0, popsize=20, maxiter=600, tol=1e-9, polish=True, init="sobol")
-    return r.x
+    if LAST_JOIN.exists():  # 前の解から局所最適化(数秒)。条件が少し変わっただけなら、差分進化(約 2 分)は要らない
+        from scipy.optimize import minimize
+
+        x0 = np.clip(np.load(LAST_JOIN), [b[0] for b in bounds], [b[1] for b in bounds])
+        x = minimize(cost, x0, method="Powell", bounds=bounds, options=dict(maxiter=40000, xtol=1e-6, ftol=1e-12)).x
+    else:
+        x = differential_evolution(cost, bounds, seed=0, popsize=20, maxiter=600, tol=1e-9, polish=True, init="sobol").x
+    LAST_JOIN.parent.mkdir(parents=True, exist_ok=True)
+    np.save(LAST_JOIN, x)
+    return x
 
 
 def edge_kappa(e, u):
