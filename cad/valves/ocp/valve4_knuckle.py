@@ -157,8 +157,9 @@ def mirrored_twisted_knuckle():
 
 def mirrored_twisted_knuckle_2f():
     """第 4 の 2 階・右下の孔(315°、+x,-y)の枝管(2026-11-24、knuckle_2f_right の 45° 枝管から置き換え。2番管も外した)。
-    2 階左下の孔(225°)のねじった枝管(twisted_knuckle_2f)を、第 4 の中心を通る YZ 平面(x = X_VALVE4)で鏡映したもの。"""
-    return twisted_knuckle_2f().mirror(Plane.YZ.offset(X_VALVE4))
+    1 階左下(v4-f1-225)と同じねじった枝管(折れ角 THETA = 52°、ψ は solve()、抜き量 PULL_OUT = √2)を 2 階(z = Z_F2)の 225° に置き、
+    第 4 の中心を通る YZ 平面(x = X_VALVE4)で鏡映したもの(2026-11-24。最初は 2 階左下 twisted_knuckle_2f の鏡像だった)。"""
+    return twisted_knuckle(None, None, PULL_OUT, Z_F2).mirror(Plane.YZ.offset(X_VALVE4))
 
 
 def main():
