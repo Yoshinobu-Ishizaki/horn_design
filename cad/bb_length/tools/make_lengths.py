@@ -69,7 +69,7 @@ parts = [
  ("bb34_L", "bb34 L 字管(G2)", bbL, "viewer_registry bb34_L_centerline"),
  ("valves321", "第3→第2→第1 ローター通過(2K+2K+K+17.5)", vp, "第1右上は直管17.5"),
  ("bb_return", "bb_return 山形管(第1 F2-45 → U の端、G2)", chev, "viewer_registry bb_return_centerline"),
- ("v4_f1_315_U", "第4 1階 315°枝管の U(ピッチ50、直管5x2込み)", u315, "viewer_registry v4_f1_315_U_centerline"),
+ ("v4_f1_315_U", "第4 1階 315°枝管の U(ピッチ 40、直管5x2込み)", u315, "viewer_registry v4_f1_315_U_centerline"),
  ("v4_1f", "第4 1階: 315°枝管 K + 225°ねじり枝管", v4_1f, ""),
  ("main_aux1", "主管補助管 1(直線+G2+直線)", aux1, "viewer_registry main_aux1_centerline"),
  ("main_aux2", "主管補助管 2(直線+G2+直線)", aux2, "viewer_registry main_aux2_centerline"),
