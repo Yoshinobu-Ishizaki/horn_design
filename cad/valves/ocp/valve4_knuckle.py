@@ -155,6 +155,12 @@ def mirrored_twisted_knuckle():
     return twisted_knuckle().mirror(Plane.YZ.offset(X_VALVE4))
 
 
+def mirrored_twisted_knuckle_2f():
+    """第 4 の 2 階・右下の孔(315°、+x,-y)の枝管(2026-11-24、knuckle_2f_right の 45° 枝管から置き換え。2番管も外した)。
+    2 階左下の孔(225°)のねじった枝管(twisted_knuckle_2f)を、第 4 の中心を通る YZ 平面(x = X_VALVE4)で鏡映したもの。"""
+    return twisted_knuckle_2f().mirror(Plane.YZ.offset(X_VALVE4))
+
+
 def main():
     from ocp_vscode import Camera
 
@@ -171,8 +177,8 @@ def main():
     for vname, (case, ks, nms) in row.items():
         parts += [case] + ks
         names += [f"{vname}_case"] + nms
-    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right(), twisted_knuckle_2f(), knuckle_2f_right()]
-    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_plusx", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
+    parts += [twisted_knuckle(th, ps), knuckle_2f_upper_right(), connect_knuckle(Z_F1), knuckle_1f_lower_right(), twisted_knuckle_2f(), mirrored_twisted_knuckle_2f()]
+    names += ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_plusx", "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_twisted_mirror"]
     show(*parts, names=names, reset_camera=Camera.KEEP)
 
 

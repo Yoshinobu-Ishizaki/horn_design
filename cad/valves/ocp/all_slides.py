@@ -21,7 +21,7 @@ def collect():
 
 
 V4_NAMES = ["valve4_knuckle_F1_225_twisted", "valve4_knuckle_F2_45_45deg_plusx", "valve4_knuckle_F1_135_45deg", "valve4_knuckle_F1_315_45deg_plusx",
-            "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_45deg_plusx"]
+            "valve4_knuckle_F2_225_twisted", "valve4_knuckle_F2_315_twisted_mirror"]
 
 
 def valve4_knuckles():
@@ -31,7 +31,7 @@ def valve4_knuckles():
     import valve4_knuckle as V
 
     def build():
-        return [V.twisted_knuckle(), V.knuckle_2f_upper_right(), V.connect_knuckle(V.Z_F1), V.knuckle_1f_lower_right(), V.twisted_knuckle_2f(), V.knuckle_2f_right()]
+        return [V.twisted_knuckle(), V.knuckle_2f_upper_right(), V.connect_knuckle(V.Z_F1), V.knuckle_1f_lower_right(), V.twisted_knuckle_2f(), V.mirrored_twisted_knuckle_2f()]  # 2 階右下は 2 階左下の鏡像(2026-11-24)
 
     return cached("valve4_knuckles", "v4", Path(__file__).resolve().parent / "valve4_knuckle.py", build)
 

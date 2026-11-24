@@ -36,7 +36,6 @@ def reg_len(nm):
 def reg_x_extent(nm):
     b = import_brep(str(REG / f"{nm}.brep")).bounding_box()
     return b.max.X - b.min.X
-U50 = reg_len("branch2_U_centerline")
 Ub, bbL = reg_len("bb34_U_centerline"), reg_len("bb34_L_centerline")
 bb34_st = reg_x_extent("bb34_straight_wall")
 # 3-1 valves pass
@@ -52,18 +51,17 @@ import mouthpipe as MP
 mp = reg_len("mouthpipe_centerline")
 MOUTHPIECE_OUT = 46.0  # マウスピースは 18 mm 差し込み、46 mm 飛び出る(2026-11-24。メンズールのマウスピース 64 = 46 + 18)
 print("mouthpipe", mp, "gap", MP.GAP, "mouthpiece out", MOUTHPIECE_OUT)
-print("U50", U50, "bb34 U", Ub, "L", bbL, "straight", bb34_st, "chevron", chev, "U315", u315, "aux1", aux1, "aux2", aux2, "bow", bow)
+print("bb34 U", Ub, "L", bbL, "straight", bb34_st, "chevron", chev, "U315", u315, "aux1", aux1, "aux2", aux2, "bow", bow)
 
 
 import csv, re
-v4_2f = K + Kt
+v4_2f = Kt + Kt  # 2 階右下も 2 階左下の鏡像のねじった枝管(2026-11-24)
 v4_1f = K + V.PULL_OUT + KN.D1 + KN.L2
 OUT = Path(__file__).resolve().parent.parent
 parts = [
  ("bell", "ベル(リム→曲げ終わり)", bell, "cad/bell03 make_centerline.build_wire"),
- ("branch1", "1番管(2番管との接続点まで)", br1, "make_centerline.build_branch_wire"),
- ("branch2_U", "2番管 U(直管5x2込み)", U50, "viewer_registry branch2_U_centerline"),
- ("v4_2f", "第4 2階: 315°枝管 K + 225°ねじり枝管(中心→端面、ローター中心経由)", v4_2f, f"K={K:.3f}, Kt=PULL_2F+D1+L2={Kt:.3f}"),
+ ("branch1", "1番管(今の芯線の末端まで。2番管を外したので第 4 とは未接続、2026-11-24)", br1, "make_centerline.build_branch_wire"),
+ ("v4_2f", "第4 2階: 315°ねじり枝管(225°の鏡像)Kt + 225°ねじり枝管 Kt(中心→端面、ローター中心経由)", v4_2f, f"Kt=PULL_2F+D1+L2={Kt:.3f}"),
  ("bb34_U", "bb34 U(直管5x2込み)", Ub, "viewer_registry bb34_U_centerline"),
  ("bb34_straight", "bb34 直管", bb34_st, "viewer_registry bb34_straight_wall の X 幅"),
  ("bb34_L", "bb34 L 字管(G2)", bbL, "viewer_registry bb34_L_centerline"),
