@@ -1,11 +1,13 @@
 """吹込管の芯線を、端点を固定した作図で作る(2026-11-24、試し。管(外形)はまだ作らない)。
 
-作図(すべて吹込管平面の中。平面と両端は mouthpipe.py の今の設計のキャッシュから取り、固定):
+作図(すべて吹込管平面の中。太い端は mouthpipe.py の今の設計から取り、固定。平面の傾き ψ は 2026-11-27 から、入口側の直線の管の外面と
+ベル・1番管の近接距離が ENTRY_CLEAR になる値(入口 M は mouthpipe.entry で ψ に追従。--old-psi で mouthpipe.py の ψ)):
 1. ベルの曲げ内側の円(曲げに使う円板の縁、φ275)を吹込管平面へ法線方向に投影する(平面の中では楕円)。
 2. それを平面の中で外側へ OFFSET_OUT ずらす(オフセット曲線)。
 3. 入口 M からオフセット曲線へ接線を引く(上側に接する方)。接点からオフセット曲線を x = FOLLOW_X_END まで沿わせる(その左は切る)。
 4. 太い端から -X の直線を x = THICK_X_END まで(その左は切る)。
 5. ガイドの円弧(中心の y = ARC_CY、x = ARC_LEFT_X に接する、半径 ARC_R)に、-GUIDE_Y < y < GUIDE_Y で沿わせる。
+7. 管(2026-11-27): 内径は入口 7.6 → 入口から 450 で 12(単純なテーパー)、その先 12、板厚 0.4(可変断面の掃引)。
 6. 4 の端 → 円弧の y = -GUIDE_Y、円弧の y = +GUIDE_Y → 3 の x = FOLLOW_X_END の端を、それぞれ G2 の円弧的な曲線(7 次ベジェ)でつなぐ。
    端の曲率は相手(直線 0・円弧 1/R・オフセット曲線)に合わせる。曲率の変化と最大を小さく、曲がりは一方向(時計回り)。
 
@@ -34,6 +36,10 @@ ARC_R = 120.0  # ガイドの円弧の半径(吹込管平面の中)
 ARC_X_MAX = 20.0  # ガイドの円弧は x < ARC_X_MAX だけ描く
 DEG = 7  # つなぎのベジェの次数
 GUIDE_Y = 35.0  # ガイドの円弧に沿う範囲 -GUIDE_Y < y < GUIDE_Y(ワールドの y)
+BORE_IN, BORE_OUT = 7.6, 12.0  # 吹込管の内径: 入口・太い側(2026-11-27。入口 8 → 7.6)
+TAPER_LEN = 450.0  # 入口から BORE_OUT に達するまでの芯線の長さ(単純なテーパー、その先は BORE_OUT のまま)
+WALL_MP = 0.4  # 吹込管の板厚
+ENTRY_CLEAR = 1.4  # 2026-11-27: 入口側の直線の管の外面とベル・1番管の近接距離。吹込管平面の ψ をこれで決める(None なら mouthpipe.py の ψ)
 
 
 def arg(k, d):
@@ -51,8 +57,52 @@ def fixed_ends(M, T):
                       MP.__file__, lambda: MP.design(bd, T, psi))
     X = np.array([1.0, 0.0, 0.0])
     T0 = d["A"] + d["x"][0] * X
+    if ENTRY_CLEAR is not None and "--old-psi" not in sys.argv:
+        # 2026-11-27: ψ は、入口側の直線の管の外面とベル・1番管の表面の近接距離が ENTRY_CLEAR になる値(ベルへ傾ける)
+        follow = (arg("--follow-x-end", FOLLOW_X_END), arg("--thick-x-end", THICK_X_END), arg("--offset-out", OFFSET_OUT))
+        clr = arg("--entry-clear", ENTRY_CLEAR)
+        psi = SC.memo_value("mouthpipe_try_psi", [round(float(v), 6) for v in (*T0, *M.ravel(), *follow, clr, BORE_IN, BORE_OUT, TAPER_LEN, WALL_MP)]
+                            + [MP.LEFT_X, MP.LEN_XY, MP.INNER_DEG], Path(__file__), lambda: solve_entry_psi(M, T0, bd, follow, clr))
+        en = MP.entry(bd, T0, psi)
+        nrm = np.cross(X, en["Yp"])
+        return T0, en["M"], nrm / np.linalg.norm(nrm), psi
     nrm = np.cross(X, d["en"]["Yp"])
     return T0, d["en"]["M"], nrm / np.linalg.norm(nrm), psi
+
+
+def entry_clearance(M, T0, bd, psi, follow, tree=None):
+    """ψ のときの、入口側の直線(接点 → 入口 M)の管の外面と、ベル・1番管の表面の点群との最小距離。外半径は bore(入口からの長さ)/2 + WALL_MP。"""
+    from scipy.spatial import cKDTree
+
+    tree = tree or cKDTree(bd["P"])
+    en = MP.entry(bd, T0, psi)
+    X = np.array([1.0, 0.0, 0.0])
+    nrm = np.cross(X, en["Yp"])
+    nrm /= np.linalg.norm(nrm)
+    c = construct(M, T0, en["M"], nrm, *follow)
+    Pt = T0 + c["Pt"][0] * c["e1"] + c["Pt"][1] * c["e2"]
+    t = np.linspace(0.0, 1.0, 400)
+    pts = en["M"] + np.outer(t, Pt - en["M"])
+    dist = np.linalg.norm(Pt - en["M"]) * t
+    dd = tree.query(pts)[0] - (bore(dist) / 2 + WALL_MP)
+    i = int(np.argmin(dd))
+    return float(dd[i]), pts[i], float(dist[i])
+
+
+def solve_entry_psi(M, T0, bd, follow, clr):
+    """entry_clearance(ψ) = clr の ψ(今の ψ から負 = ベルへ近づく向きに探す)。"""
+    from scipy.optimize import brentq
+    from scipy.spatial import cKDTree
+
+    tree = cKDTree(bd["P"])
+    f = lambda ps: entry_clearance(M, T0, bd, ps, follow, tree)[0] - clr  # noqa: E731
+    a, fa = 0.0, f(0.0)
+    for b in np.arange(-0.5, -15.01, -0.5):
+        fb = f(b)
+        if np.sign(fb) != np.sign(fa):
+            return brentq(f, b, a, xtol=1e-6)
+        a, fa = b, fb
+    raise ValueError("entry clearance: no psi in [-15, 0]")
 
 
 class OffsetEllipse:
@@ -244,7 +294,8 @@ def hook(M, branch, others):
     w = Wire(edges)
 
     Pt3, Pe3 = to3(c["Pt"]), to3(c["E2"])
-    print(f"mouthpipe (fixed ends): thick end {T0.round(3).tolist()}, entry M {Mp.round(3).tolist()}, psi {psi:.3f} deg (from the cached design); no tube")
+    print(f"mouthpipe: thick end {T0.round(3).tolist()}, entry M {Mp.round(3).tolist()}, psi {psi:.4f} deg"
+          + (" (entry-straight clearance %.3f at %.1f from the entry)" % entry_clearance(M, T0, MP.bell_data(M), psi, (fx, tx, off))[::2] if ENTRY_CLEAR is not None else " (from mouthpipe.py)"))
     print(f"guide arc: centre {to3(cen2).round(3).tolist()}, R {Ra:g} (in the plane), tangent to x = {xl:g}, drawn for x < {xm:g} ({e_arc.length:.3f}); "
           f"centerline on it for y {-gy:g}..{gy:g}: A {to3(A2).round(3).tolist()} -> B {to3(B2).round(3).tolist()} ({e_guide.length:.3f})")
     print(f"offset {off:g} of the projected D275 bell inner circle: tangent point from M {Pt3.round(3).tolist()} (entry straight {e_entry.length:.3f}); "
@@ -263,7 +314,65 @@ def hook(M, branch, others):
     gap = [(a @ 1 - b @ 0).length for a, b in zip(edges[:-1], edges[1:])]
     print(f"tangent mismatch at the joints {np.round(tan_err, 5).tolist()} deg, gaps max {max(gap):.1e}")
     print("centerline: " + " + ".join(f"{e.length:.3f}" for e in edges) + f" = {w.length:.3f}")
-    return branch, p0 + [w], n0 + ["mouthpipe_centerline"], c0 + ["#00c0ff"]  # ガイドの円弧(e_arc)は非表示
+    tube = mouthpipe_tube(w)
+    import branch2_l as B2
+
+    print("clearance (mouthpipe tube):")
+    B2.report_clearance(tube, others + list(zip(n0, p0)) + [("bell03_branch1_wall", branch)])
+    return branch, p0 + [tube, w], n0 + ["mouthpipe_wall", "mouthpipe_centerline"], c0 + ["#e0a020", "#00c0ff"]  # ガイドの円弧(e_arc)は非表示
+
+
+def bore(dist_from_entry):
+    """吹込管の内径(入口からの芯線の長さ → 内径): 入口 BORE_IN から TAPER_LEN で BORE_OUT に達する単純なテーパー、その先は BORE_OUT。"""
+    t = np.clip(np.asarray(dist_from_entry, float) / TAPER_LEN, 0.0, 1.0)
+    return BORE_IN + (BORE_OUT - BORE_IN) * t
+
+
+def mouthpipe_tube(w):
+    """吹込管の管(2026-11-27): 内径 bore(入口からの長さ)、板厚 WALL_MP。辺ごとに可変断面で掃引(テーパーの終わりの点で辺を分ける)、外 - 内。
+    芯線は平面(吹込管平面)なので、副法線を平面の法線に固定する(変曲点のある曲線もそのまま掃引できる)。"""
+    from build123d import Compound, Vector, Wire
+    from shape_cache import cached
+
+    from bope_claude_cad.vss import variable_pipe_law
+
+    Ltot = w.length
+    edges, s0 = [], 0.0
+    s_k = Ltot - TAPER_LEN  # 太い端からの長さで、テーパーの終わり
+    for e in w.edges():
+        if s0 < s_k < s0 + e.length - 1e-6:
+            q = e.position_at(s_k - s0, position_mode=__import__("build123d").PositionMode.LENGTH)
+            edges += [(s0, e.trim(e.position_at(0), Vector(q))), (s_k, e.trim(Vector(q), e.position_at(1)))]
+        else:
+            edges.append((s0, e))
+        s0 += e.length
+    P = np.array([[v.X, v.Y, v.Z] for v in w.vertices()] + [[q.X, q.Y, q.Z] for q in (w.position_at(t) for t in np.linspace(0, 1, 41))])
+    nrm = np.linalg.svd(P - P.mean(axis=0))[2][2]
+    planar = float(np.abs((P - P.mean(axis=0)) @ nrm).max())
+
+    def build():
+        walls = []
+        for sa, e in edges:
+            ss = np.linspace(0.0, e.length, 11)
+            dd = bore(Ltot - (sa + ss))
+            kw = {} if e.geom_type.name == "LINE" else {"binormal": tuple(float(x) for x in nrm)}
+            # 内外の面を別々にソリッドで掃引して引く(variable_pipe_wall は、テーパーのある曲線で端面の閉じ方が壊れて体積が 15 倍になった)。
+            # 厚みは法線方向でなく半径方向(テーパーの傾き 4/450 なので差は 4e-5 倍)
+            inner, _ = variable_pipe_law(Wire([e]), ss, dd, solid=True, **kw)
+            outer, _ = variable_pipe_law(Wire([e]), ss, dd + 2 * WALL_MP, solid=True, **kw)
+            walls.append(outer - inner)
+        return Compound(walls)
+
+    key = [np.round(P, 9).tolist(), round(Ltot, 9), BORE_IN, BORE_OUT, TAPER_LEN, WALL_MP]
+    tube = cached("mouthpipe_tube", key, __file__, build)
+    ls = np.linspace(0.0, Ltot, 20001)
+    dd = bore(Ltot - ls)
+    vexp = float(np.trapezoid(np.pi / 4 * ((dd + 2 * WALL_MP) ** 2 - dd**2), ls))
+    vol = sum(x.volume for x in tube.solids())
+    print(f"mouthpipe tube: bore {BORE_IN:g} at the entry -> {BORE_OUT:g} at {TAPER_LEN:g} from the entry (simple taper), then {BORE_OUT:g}; wall {WALL_MP:g}; "
+          f"{len(edges)} edges (split at {TAPER_LEN:g} from the entry), plane offset {planar:.1e}; valid {tube.is_valid}, {len(tube.solids())} solids, "
+          f"volume {vol:.2f} (expected {vexp:.2f}, {100 * (vol / vexp - 1):+.3f}%)")
+    return tube
 
 
 def main() -> None:
