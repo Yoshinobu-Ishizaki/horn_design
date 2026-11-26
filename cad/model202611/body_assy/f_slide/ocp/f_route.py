@@ -116,8 +116,8 @@ def hook(M, branch, others):
     B, t1, K = frame(e_mid, 0.0)
     t0 = np.array([-1.0, 0.0, 0.0])
     b1_clear = arg("--b1-clear", B1_CLEAR)
-    tree_b1 = surface_tree(branch, S1, B)
-    cp, info = g2_join(S1, t0, np.zeros(3), B, t1, K, obstacles=[(tree_b1, b1_clear + 0.1)])
+    cp, info = memo_join("f_route_join1", (S1, t0, np.zeros(3), B, t1, K, b1_clear),
+                         lambda: g2_join(S1, t0, np.zeros(3), B, t1, K, obstacles=[(surface_tree(branch, S1, B), b1_clear + 0.1)]))
     e_j = Edge.make_bezier(*[Vector(*q) for q in cp])
     Bj, tj, Kj = frame(e_j, 1.0)
     A0, ta, Ka = frame(e_j, 0.0)
@@ -131,7 +131,8 @@ def hook(M, branch, others):
 
     # つなぎ 2(2026-11-26): オフセット曲線の y = Y_HIGH の端(向き・曲率ベクトル)→ 枝管側の直線の端 E1(枝管へ入る向き -u、曲率 0)
     C, tc, Kc = frame(e_mid, 1.0)
-    cp2, info2 = g2_join(C, tc, Kc, E1, -u, np.zeros(3), w_xy=arg("--w-xy", W_XY))
+    w_xy = arg("--w-xy", W_XY)
+    cp2, info2 = memo_join("f_route_join2", (C, tc, Kc, E1, -u, w_xy), lambda: g2_join(C, tc, Kc, E1, -u, np.zeros(3), w_xy=w_xy))
     e_j2 = Edge.make_bezier(*[Vector(*q) for q in cp2])
     C2, tc2, Kc2 = frame(e_j2, 0.0)
     D2, td2, Kd2 = frame(e_j2, 1.0)
@@ -153,7 +154,10 @@ def hook(M, branch, others):
     from build123d import Wire
 
     w = Wire([e_in, e_j, e_mid, e_j2, Edge.make_line(Vector(*E1), Vector(*E))])
-    tube = U.const_d_tube(w, TUBE_ID, (TUBE_OD - TUBE_ID) / 2)
+    from shape_cache import cached
+
+    key = [np.round(np.array([[v.X, v.Y, v.Z] for v in w.vertices()]), 9).tolist(), round(w.length, 9), TUBE_OD, TUBE_ID]
+    tube = cached("f_route_tube", key, __file__, lambda: U.const_d_tube(w, TUBE_ID, (TUBE_OD - TUBE_ID) / 2))
     vol = sum(x.volume for x in tube.solids())
     vexp = np.pi / 4 * (TUBE_OD**2 - TUBE_ID**2) * w.length
     print(f"F route tube D {TUBE_ID:g}/{TUBE_OD:g}: valid {tube.is_valid}, {len(tube.solids())} solids, volume {vol:.2f} (expected {vexp:.2f}, {100 * (vol / vexp - 1):+.3f}%), "
@@ -163,6 +167,14 @@ def hook(M, branch, others):
     return (branch, p0 + [tube, w, e_mid],
             n0 + ["f_route_wall", "f_route_centerline", "f_route_bell_offset"],
             c0 + ["#40c040", "#ff2020", "#ff80ff"])
+
+
+def memo_join(tag, params, fn):
+    """g2_join の結果(制御点と情報)を、入力と(import をたどった)ソースが同じなら、ディスクから読む。"""
+    from shape_cache import memo_value
+
+    key = [np.round(np.asarray(q, float), 9).tolist() for q in params]
+    return memo_value(tag, key, Path(__file__), fn)
 
 
 def surface_tree(shape, A, B, margin=60.0):
