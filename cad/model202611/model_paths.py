@@ -19,6 +19,7 @@
         main_aux_tube/      主管補助管 1・2
         main_slide/         主管抜差・主管頭
         mouthpipe/          吹込管
+        f_slide/            F管抜差(仮)
 共通の部品(植込み cad/valves、ベル cad/bell03、bellscrew、bows、tubes)は cad/ の直下のまま。
 """
 
@@ -38,6 +39,7 @@ PARTS = {
     "main_aux_tube": MODEL / "body_assy/main_aux_tube",
     "main_slide": MODEL / "body_assy/main_slide",
     "mouthpipe": MODEL / "body_assy/mouthpipe",
+    "f_slide": MODEL / "body_assy/f_slide",
 }
 COMMON = ["cad/bellscrew/ocp", "cad/valves/ocp", "cad/bows/ocp", "cad/bell03/ocp", "cad/bell03/tools", "cad/tubes/ocp", "src"]
 
