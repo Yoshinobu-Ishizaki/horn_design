@@ -1,6 +1,6 @@
 """U 字の頭管(2 本の直線のピッチは任意。標準は 30 / 40 / 50 / 60)。12.8×12.0 のパイプ。
 方針(頭管の中心線の方針。cad/bows/worklog.md の「方針」に一覧):
-  ピッチ ≤ 30: 真円の半円。ピッチ > 30: 直線と曲率連続(G2)のスプライン(長円的)。最小曲げ半径はピッチに比例(40 で R15)、
+  ピッチ ≤ 30: 真円の半円。30 < ピッチ < 50: ピッチ 50 の曲線の相似形(2026-11-27)。ピッチ ≥ 50: 直線と曲率連続(G2)のスプライン(長円的)。最小曲げ半径はピッチに比例(40 で R15)、
   高さもピッチに応じて上がる(解がなければ自動で上げる)。設計値でなく、実際のスプライン曲線を測って最小曲げ半径を保証する。f2bow(ピッチ 20)も、直管の長さは 5(U 字系で統一)。
 
 座標は f2bow と同じ: 管は XY 平面内。左の直線の始端 (-P/2, 0) から +Y 向きに長さ LEG の直管、キャップ(U の曲がり)、
@@ -23,7 +23,8 @@ from bow_spline import planar_tube, smooth, solid_volume
 
 LEG = 5.0  # 直管の長さ(U 字系で統一。f2bow も 5)
 RMIN_RATIO_50 = 21.6 / 50.0  # 2番管のピッチ 50 の形(最小 R 21.6 = ピッチの 0.432 倍、高さ 25.0)が基本(2026-11-24)。ピッチ 50 以上は、これを相対的に広げる(比例)
-RMIN_RATIO_40 = 15.0 / 40.0  # ピッチ 40 以下は、この比(0.375)でないと解がない。40〜50 は線形に補間
+RMIN_RATIO_40 = 15.0 / 40.0  # ピッチ 40 以下は、この比(0.375)でないと解がない。40〜50 は線形に補間(SIMILAR_TO より狭いピッチは、2026-11-27 から使わない)
+SIMILAR_TO = 50.0  # 2026-11-27: U_ARC_MAX < ピッチ < SIMILAR_TO は、ピッチ 50 の曲線を P/50 倍した相似形(直線 LEG はそのまま)。狭いピッチで角ばらないように
 RMIN_40 = RMIN_RATIO_40 * 40.0  # 互換のため
 H_RATIO = 0.5  # 高さの初期値 = ピッチ × この比(解がなければ 0.5 ずつ上げる)
 
@@ -132,6 +133,8 @@ def u_bow(pitch: float, h: float | None = None, rmin: float | None = None):
 
     P = float(pitch)
     assert P > 2 * 6.4, "ピッチは管の外径(12.8)より大きく"
+    if U_ARC_MAX + 1e-9 < P < SIMILAR_TO - 1e-9 and h is None and rmin is None:
+        return _similar(P)
     h = h_for(P) if h is None else h
     rmin = rmin_for(P) if rmin is None else rmin
     if P <= U_ARC_MAX + 1e-9:
@@ -160,6 +163,37 @@ def u_bow(pitch: float, h: float | None = None, rmin: float | None = None):
         wire = Wire([Edge.make_line((-P / 2, 0, 0), (-P / 2, LEG, 0)), e2, Edge.make_line((P / 2, LEG, 0), (P / 2, 0, 0))])
         info = dict(kind="spline", curve_len=float(ss[-1]), h=float(pts[:, 1].max() - LEG), h_req=h, kmax=float(km), rmin=float(1 / km),
                     rc=rc, params=p, geom=geo, s=ss, k=kk, pts=pts, crv=crv, apex_y=float(pts[:, 1].max()))
+    solid = planar_tube(wire, Vector(-P / 2, 0, 0), Vector(0, 1, 0))
+    return solid, info
+
+
+def _similar(P):
+    """ピッチ SIMILAR_TO の曲線(直線の端 → 頂点 → 直線の端)を、直線の端を基準に P/SIMILAR_TO 倍した相似形の U(2026-11-27)。
+    曲率は SIMILAR_TO/P 倍(最小曲げ半径 21.61·P/50、高さ 25·P/50)。直線 LEG は 5 のまま。"""
+    from build123d import Edge, Vector, Wire
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+    from OCP.collections import Array1_gp_Pnt
+    from OCP.GeomAPI import GeomAPI_PointsToBSpline
+    from OCP.GeomAbs import GeomAbs_Shape
+    from OCP.gp import gp_Pnt
+
+    _, base = u_bow(SIMILAR_TO)
+    f = P / SIMILAR_TO
+    pts = np.column_stack([base["pts"][:, 0] * f, LEG + (base["pts"][:, 1] - LEG) * f])
+    ss, kk = base["s"] * f, base["k"] / f
+    n_pts = max(300, int(ss[-1] / 0.45))
+    idx = np.linspace(0, len(pts) - 1, n_pts + 1).astype(int)
+    q = pts[idx].copy()
+    q[0], q[-1] = (-P / 2, LEG), (P / 2, LEG)
+    arr = Array1_gp_Pnt(1, len(q))
+    for i, (x, y) in enumerate(q, start=1):
+        arr.SetValue(i, gp_Pnt(float(x), float(y), 0.0))
+    crv = GeomAPI_PointsToBSpline(arr, 3, 6, GeomAbs_Shape.GeomAbs_C2, 1e-5).Curve()
+    km = spline_kmax(crv)
+    e2 = Edge(BRepBuilderAPI_MakeEdge(crv).Edge())
+    wire = Wire([Edge.make_line((-P / 2, 0, 0), (-P / 2, LEG, 0)), e2, Edge.make_line((P / 2, LEG, 0), (P / 2, 0, 0))])
+    info = dict(kind="similar", curve_len=float(ss[-1]), h=float(pts[:, 1].max() - LEG), h_req=base["h"] * f, kmax=float(km), rmin=float(1 / km),
+                rc=base["rc"] * f, params=None, geom=None, s=ss, k=kk, pts=pts, crv=crv, apex_y=float(pts[:, 1].max()), scale=f)
     solid = planar_tube(wire, Vector(-P / 2, 0, 0), Vector(0, 1, 0))
     return solid, info
 
