@@ -1,12 +1,15 @@
 """F管の右側の経路(2026-11-27、芯線だけ): 第 4 植込の 2 階右上の枝管(valve4_knuckle_F2_45_twisted)から。座標は管体組立のワールド。
 
 - 枝管側: 枝管の出口の端面の中心 E から、出口の軸の延長に BR_ST まっすぐ。
-- ベル平面の直線: ベル平面(ベルの芯線の平面)の上で、y を左側の経路(f_route)の中管側の直線とそろえ、x = X0 .. X1。
+- ベル平面の直線: ベル平面(ベルの芯線の平面)の上で X 方向、x = X0 .. X1。最初は y を左側の経路(f_route)の中管側の直線とそろえた。
+  2026-11-27: 中管 2 側の直線(X 方向)との軸間距離が PITCH_T2 になるまで -Y へ(ベル平面の上を)動かす。
 - 中間部の作図(2026-11-27): 左側と同じ、ベルの曲げ内側の外面をベル平面の中で内側へ BELL_OFF(f_route と同じ 7.8)ずらした曲線の、
   x > 0 の部分、y = Y_LOW .. Y_HIGH(最初は左側と同じ [-40, 0] → [-40, -10] → [-50, -10]、2026-11-27)。
+- 中管 2 側(2026-11-27): F管抜差の中管 2 の -X の端面から GAP2 離した点(中管 2 の軸の上)から、-X へまっすぐ x = X2_END まで。
+- 非対称な U: ベル平面の直線の -X の端 → 中管 2 側の直線の -X の端(7 次ベジェ、平面、両端 G2。+Y 側はゆるやか、-Y 側はきつい)。
 - つなぎ A: 枝管側の直線の端 → 桃色の曲線の y = Y_HIGH の端、つなぎ B: 桃色の曲線の y = Y_LOW の端 → ベル平面の直線の +X の端(G2 の 5 次ベジェ)。
 
-    uv run python cad/model202611/body_assy/f_slide/ocp/f_route_r.py [--br-st 6] [--x0 -60] [--x1 45] [--bell-off 7.8] [--y-low -50] [--y-high -10] [--w-xy 5]
+    uv run python cad/model202611/body_assy/f_slide/ocp/f_route_r.py [--br-st 6] [--x0 -60] [--x1 45] [--bell-off 7.8] [--y-low -50] [--y-high -10] [--w-xy 5] [--pitch-t2 50] [--u-r-plus 20] [--u-r-minus 20] [--gap2 1] [--x2-end -35]
 """
 
 from __future__ import annotations
@@ -26,6 +29,10 @@ ROOT = model_paths.add()
 BRANCH = "valve4_knuckle_F2_45_twisted"  # 第 4 の 2 階・右上(孔 45°)のねじった枝管
 BR_ST = 6.0  # 枝管の出口から軸の延長にまっすぐ出す長さ
 X0, X1 = -60.0, 45.0  # ベル平面の直線の x の範囲。[-60, 35] → [-60, 45](2026-11-27)
+U_R_PLUS, U_R_MINUS = 20.0, 20.0  # 非対称な U の最小曲げ半径: +Y 側の半分・-Y 側の半分。+Y 40 → 20(2026-11-27)
+PITCH_T2 = 50.0  # ベル平面の直線と中管 2 側の直線の軸間距離
+GAP2 = 1.0  # 中管 2 の -X の端面から直線の始点まで
+X2_END = -35.0  # 中管 2 側の直線の終わりの x
 Y_LOW, Y_HIGH = -50.0, -10.0  # 中間部の作図の曲線の y の範囲(ワールド)。[-40, 0](左と同じ)→ [-40, -10] → [-50, -10](2026-11-27)
 
 
@@ -75,14 +82,22 @@ def hook(M, branch, others):
     print(f"F route (right, centerlines only): branch {BRANCH} exit E {E.round(3).tolist()}, axis {u.round(4).tolist()} (|face normal . axis| {par:.6f}) "
           f"-> {E1.round(3).tolist()} ({e_br.length:.3f})")
 
-    # ベル平面の直線: y = 左側の経路の中管側の直線の y、x = x0 .. x1、z はベル平面の上
-    y = d["f_route_centerline"].position_at(0.0).Y
+    # ベル平面の直線: X 方向、x = x0 .. x1、ベル平面の上。y は中管 2 側の直線との軸間距離が pitch_t2 になる所(左側の経路の y から -Y へ)
+    from scipy.optimize import brentq
+
     o, n = bell_plane(M)
-    z_at = lambda x: o[2] - (n[0] * (x - o[0]) + n[1] * (y - o[1])) / n[2]  # noqa: E731
+    zp = lambda x, yy: o[2] - (n[0] * (x - o[0]) + n[1] * (yy - o[1])) / n[2]  # noqa: E731
+    gap2, x2_end, pitch_t2 = arg("--gap2", GAP2), arg("--x2-end", X2_END), arg("--pitch-t2", PITCH_T2)
+    b2 = d["f_slide_inner_tube2"].bounding_box(optimal=False)
+    T0 = np.array([b2.min.X - gap2, (b2.min.Y + b2.max.Y) / 2, (b2.min.Z + b2.max.Z) / 2])
+    y_left = d["f_route_centerline"].position_at(0.0).Y
+    assert abs(n[0]) < 1e-9  # ベル平面の直線が X 方向なら、軸間距離は YZ での距離
+    y = brentq(lambda yy: np.hypot(yy - T0[1], zp(0.0, yy) - T0[2]) - pitch_t2, T0[1], y_left)
+    z_at = lambda x: zp(x, y)  # noqa: E731
     P0, P1 = np.array([x0, y, z_at(x0)]), np.array([x1, y, z_at(x1)])
     e_bp = Edge.make_line(Vector(*P0), Vector(*P1))
     t = (P1 - P0) / np.linalg.norm(P1 - P0)
-    print(f"bell-plane straight: y {y:.3f} (= f_route inner-tube straight), {P0.round(3).tolist()} -> {P1.round(3).tolist()} ({e_bp.length:.3f}), "
+    print(f"bell-plane straight: y {y:.3f} ({y - y_left:+.3f} from the f_route inner-tube straight; pitch {pitch_t2:g} to the inner-tube-2 straight), {P0.round(3).tolist()} -> {P1.round(3).tolist()} ({e_bp.length:.3f}), "
           f"direction {t.round(5).tolist()}, on the bell plane {float((P0 - o) @ n):+.1e} / {float((P1 - o) @ n):+.1e}; bell-plane normal {n.round(5).tolist()}")
     print(f"between E1 and the straight's +X end: {(P1 - E1).round(3).tolist()} (distance {np.linalg.norm(P1 - E1):.3f})")
     # 中間部の作図: ベルの曲げ内側の外面を BELL_OFF ずらした曲線(y = Y_LOW .. Y_HIGH、x > 0)
@@ -122,7 +137,83 @@ def hook(M, branch, others):
     from build123d import Wire
 
     w = Wire([Edge.make_line(Vector(*E), Vector(*E1)), joins[0], e_mid, joins[1], e_bp_r])
-    return (branch, p0 + [w, e_mid], n0 + ["f_route_r_centerline", "f_route_r_bell_offset"], c0 + ["#ff2020", "#ff80ff"])
+    # 中管 2 側の直線: 中管 2 の -X の端面から gap2 離して、-X へ x = x2_end まで
+    T1 = np.array([x2_end, T0[1], T0[2]])
+    e_t2 = Edge.make_line(Vector(*T0), Vector(*T1))
+    print(f"inner-tube-2 side straight: {T0.round(3).tolist()} -> {T1.round(3).tolist()} ({e_t2.length:.3f}, dir -X); "
+          f"to the bell-plane straight's -X end {P0.round(3).tolist()}: {(P0 - T1).round(3).tolist()} (distance {np.linalg.norm(P0 - T1):.3f}); axis distance {np.hypot(*(P0 - T1)[1:]):.6f}")
+    # 非対称な U(2026-11-27): ベル平面の直線の -X の端 P0(向き -X)→ 中管 2 側の直線の -X の端 T1(向き +X)。2 本の直線を含む平面の 7 次ベジェ。
+    # 両端の曲率 0(G2)。+Y 側(ベル平面の直線の側)の曲率を小さく、-Y 側を大きく(「つ」を左右反転した形)。
+    r_plus, r_minus = arg("--u-r-plus", U_R_PLUS), arg("--u-r-minus", U_R_MINUS)
+    cpu, iu = FR.memo_join("f_route_r_u", (P0, T1, r_plus, r_minus), lambda: asym_u(P0, T1, r_plus, r_minus))
+    e_u = Edge.make_bezier(*[Vector(*q) for q in cpu])
+    s0, s1 = FR.frame(e_u, 0.0), FR.frame(e_u, 1.0)
+    print(f"asymmetric U (P0 {P0.round(3).tolist()} -> T1 {T1.round(3).tolist()}, pitch {np.hypot(*(T1 - P0)[1:]):.3f}): deg-7 Bezier {e_u.length:.3f}, "
+          f"min R +Y half {iu['r_plus']:.2f} (>= {r_plus:g}) / -Y half {iu['r_minus']:.2f} (>= {r_minus:g}), reaches x {iu['xmin']:.3f}, plane offset {iu['planar']:.1e}; "
+          f"signed curvature max {iu['k_sign_max']:+.2e} (<= 0: one sign), v {iu['v_range'][0]:.3f}..{iu['v_range'][1]:.3f} (0..pitch)")
+    print(f"  G2 check: start tangent {np.degrees(np.arccos(min(1.0, s0[1] @ np.array([-1.0, 0, 0])))):.2e} deg, curvature {np.linalg.norm(s0[2]):.1e}; "
+          f"end position {np.linalg.norm(s1[0] - T1):.1e}, tangent {np.degrees(np.arccos(min(1.0, s1[1] @ np.array([1.0, 0, 0])))):.2e} deg, curvature {np.linalg.norm(s1[2]):.1e}")
+    print(f"  to bell wall {e_u.distance_to(d['bell03_bell_wall']):.3f}, to branch1 {e_u.distance_to(branch):.3f} (centerline; tube outer radius 6.4)")
+    return (branch, p0 + [w, e_mid, e_t2, e_u], n0 + ["f_route_r_centerline", "f_route_r_bell_offset", "f_route_r_tube2_straight", "f_route_r_u"],
+            c0 + ["#ff2020", "#ff80ff", "#ff2020", "#ff2020"])
+
+
+def asym_u(A, B, r_plus, r_minus, n=201):
+    """A(向き -X、曲率 0)→ B(向き +X、曲率 0)の 7 次ベジェ。A・B を通る X 方向の 2 直線を含む平面の中。
+    P1 = A - a1·X、P2 = P1 - a2·X、P5 = P6 - b2·X、P6 = B - b1·X、P3・P4 は平面の中で自由(平面の座標 (x, v)、v は A の直線から B の直線へ)。
+    目的: 長さ + 0.01·Σ(dκ)²、条件(罰則): +Y 側の半分(A の直線に近い側 v < pitch/2)の最小 R ≥ r_plus、-Y 側の半分 ≥ r_minus。
+    (曲率だけを小さくすると U がいくらでも大きくなるので、長さを最小にする。2026-11-27)
+    さらに(2026-11-27): 2 本の直線の外へ出ない(0 ≤ v ≤ pitch)、曲率の符号が途中で変わらない(平面の中の符号付き曲率が一定の符号)。"""
+    import f_route as FR
+    from scipy.optimize import minimize
+
+    ex = np.array([1.0, 0.0, 0.0])
+    dv = (B - A) - ((B - A) @ ex) * ex
+    pitch = np.linalg.norm(dv)
+    ev = dv / pitch
+    to3 = lambda x, v: A + x * ex + v * ev  # noqa: E731  (x は A からの X の差)
+    xb = (B - A) @ ex
+    s = np.linspace(0, 1, n)
+
+    def ctrl(q):
+        a1, a2, b1, b2 = np.exp(q[:4]) * pitch
+        x3, v3, x4, v4 = q[4:] * pitch
+        return np.array([to3(0, 0), to3(-a1, 0), to3(-a1 - a2, 0), to3(x3, v3), to3(x4, v4), to3(xb - b1 - b2, pitch), to3(xb - b1, pitch), B])
+
+    def parts(q):
+        p = FR.bez(ctrl(q), s)
+        k = FR.curv3(p)[2:-2]
+        v = (p[2:-2] - A) @ ev
+        return p, k, v
+
+    def signed(p):
+        x, v = (p - A) @ ex, (p - A) @ ev
+        x1, v1 = np.gradient(x), np.gradient(v)
+        x2, v2 = np.gradient(x1), np.gradient(v1)
+        return ((x1 * v2 - v1 * x2) / np.hypot(x1, v1) ** 3)[2:-2]  # -X → +v → +X の向きに回るので負
+
+    def f(q):
+        p, k, v = parts(q)
+        kp, km = k[v < pitch / 2].max(initial=0.0), k[v >= pitch / 2].max(initial=0.0)
+        ds = np.linalg.norm(np.diff(p, axis=0), axis=1).sum() / n
+        ln = ds * n
+        pen = max(0.0, kp - 1.0 / r_plus) ** 2 + max(0.0, km - 1.0 / r_minus) ** 2
+        pen += max(0.0, float(signed(p).max())) ** 2  # 曲率の符号が変わらない
+        vv = (p - A) @ ev
+        pen += (max(0.0, float(vv.max()) - pitch) ** 2 + max(0.0, -float(vv.min())) ** 2) / pitch**2  # 直線の外へ出ない
+        return float(ln / pitch + 0.01 * (np.diff(k) ** 2).sum() / ds * pitch**3 + 1e5 * pen * pitch**2)
+
+    starts = [np.r_[np.log([0.3, 0.3, 0.3, 0.3]), [-1.2, 0.2, -1.0, 0.9]], np.r_[np.log([0.5, 0.4, 0.2, 0.2]), [-1.6, 0.4, -1.2, 1.0]],
+              np.r_[np.log([0.6, 0.6, 0.15, 0.15]), [-2.0, 0.5, -1.3, 1.1]]]
+    best = min((minimize(f, q0, method="Nelder-Mead", options=dict(maxiter=8000, xatol=1e-7, fatol=1e-12)) for q0 in starts), key=lambda r: r.fun)
+    cp = ctrl(best.x)
+    p, k, v = parts(best.x)
+    nrm = np.cross(ex, ev)
+    ks = signed(p)
+    vv = (p - A) @ ev
+    return cp, dict(r_plus=1 / k[v < pitch / 2].max(), r_minus=1 / k[v >= pitch / 2].max(), xmin=float(p[:, 0].min()),
+                    k_sign_max=float(ks.max()), v_range=(float(vv.min()), float(vv.max())),
+                    planar=float(np.abs((cp - A) @ nrm).max()))
 
 
 def offset_edge(M, off, y_lo, y_hi):
