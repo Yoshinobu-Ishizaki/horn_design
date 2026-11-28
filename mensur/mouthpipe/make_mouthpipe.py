@@ -16,7 +16,9 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # 吹込管のメンズール
+    # 吹込管のメンズール関数定義
+
+    吹込管のメンズールを関数で定義することを考える。
 
     $x$ はマウスピースの出口(差し込んだマウスピースの先端)からの芯線に沿った長さ [mm]、$D$ は内径 [mm]。
     ここではマウスピースより先のメンズールだけを扱う。マウスピースを差し込むシャンク部分は含めない。
@@ -35,7 +37,7 @@ def _(mo):
     \varphi(u) = \frac{\ln(1 + k\,u)}{\ln(1 + k)}
     $$
 
-    に直す。実例はこの形で計算する。
+    に直す。各節の終わりに、その形での実例を計算する。
     """)
     return
 
@@ -103,7 +105,7 @@ def _(L1_in, L2_in, d1_in, d2_in, np):
     return L1, L2, d1, d2, xx
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## 4 パラメータの形: $D(x) = a\,(x+b)^p + d$
@@ -139,7 +141,7 @@ def _(mo):
 
     - $p = 1$ なら右辺は $b$ によらず $L_2/L_1$。直線のテーパーは $r = L_2/L_1$ のときだけ 3 点を通る。
     - $0 < p < 1$ なら右辺は $b=0$ で $(L_2/L_1)^p$、$b\to\infty$ で $L_2/L_1$(直線に近づく)。
-      したがって解があるのは $L_2/L_1 < r < (L_2/L_1)^p$ のとき。$r > L_2/L_1$ は、3 点が中膨らみに並んでいるということ。
+      したがって解があるのは $L_2/L_1 < r < (L_2/L_1)^p$ のとき。
 
     $b$ が決まれば
 
@@ -147,14 +149,70 @@ def _(mo):
     a = \frac{d_1-d_0}{(L_1+b)^p - b^p},\qquad d = d_0 - a\,b^p
     $$
 
-    ### 残る 1 つの自由度
-
     3 条件で $a, b, d$ は $p$ の関数として決まり、$p$ の分の自由度が 1 つ残る。
-    ところが $p$ を大きく変えても、曲線の形はほとんど変わらない(径の差は数百分の 1 mm。実例で確かめる)。
-    動くのは $b$ と $d$ の組み合わせだけで、$p$ が小さいと $d<0$ にもなる。
+
+    ### 実例: $p$ を変えて比べる
+
+    3 条件を満たしたまま $p$ を 0.1〜0.7 で動かす。
+    """)
+    return
+
+
+@app.cell
+def _(L1, L2, brentq, d0, d1, d2, mo, np, xx):
+    def solve4(pv):
+        """4 パラメータの形で、p を与えて 3 条件を満たす (a, b, d) を返す。"""
+        _r = (d2 - d0) / (d1 - d0)
+
+        def g(b):
+            return ((L2 + b) ** pv - b**pv) / ((L1 + b) ** pv - b**pv) - _r
+
+        _b = brentq(g, 0.0, 1e9, xtol=1e-12, rtol=1e-15, maxiter=500)
+        _a = (d1 - d0) / ((L1 + _b) ** pv - _b**pv)
+        return _a, _b, d0 - _a * _b**pv
+
+    _r = (d2 - d0) / (d1 - d0)
+    p_lim = np.log(_r) / np.log(L2 / L1)  # b = 0 になる p。これより小さい p で解がある
+    ps4 = [pv for pv in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7) if pv < p_lim]
+    family4 = {pv: solve4(pv) for pv in ps4}
+    ys4 = np.array([_a * (xx + _b) ** pv + _d for pv, (_a, _b, _d) in family4.items()])
+    spread4 = ys4.max(axis=0) - ys4.min(axis=0)
+    _rows = "\n".join(f"| {pv:.1f} | {_a:.5g} | {_b:.5g} | {_d:.5g} |" for pv, (_a, _b, _d) in family4.items())
+    mo.md(
+        f"$r$ = {_r:.6f}(直線なら $L_2/L_1$ = {L2 / L1:.6f})  \n"
+        f"解のある $p$ の範囲: 0 < $p$ < {p_lim:.6f}\n\n"
+        "| p | a | b | d |\n|---|---|---|---|\n" + _rows
+        + f"\n\n径の差の最大: **{spread4.max():.4f} mm**(x = {xx[spread4.argmax()]:g})"
+    )
+    return ps4, solve4, spread4, ys4
+
+
+@app.cell
+def _(L1, L2, d0, d1, d2, plt, ps4, spread4, xx, ys4):
+    fig_family, ax_family = plt.subplots(2, 1, figsize=(8, 7), sharex=True)
+    for _pv, _y in zip(ps4, ys4):
+        ax_family[0].plot(xx, _y, label=f"p = {_pv:.1f}")
+    ax_family[0].plot([0, L1], [d0, d1], "k--", lw=0.8, label="linear taper (p = 1)")
+    ax_family[0].plot([0, L2, L1], [d0, d2, d1], "ko")
+    ax_family[0].set_ylabel("D [mm]")
+    ax_family[0].legend()
+    ax_family[1].plot(xx, spread4)
+    ax_family[1].set_ylabel("spread of D [mm]")
+    ax_family[1].set_xlabel("x [mm] from the mouthpiece exit")
+    for _ax in ax_family:
+        _ax.grid(True)
+    fig_family
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""
+    $p$ を大きく変えても、曲線の差は数百分の 1 mm しかない。動くのは $b$ と $d$ の組み合わせで、形はほとんど変わらない。
+    また $p$ が小さいと $d<0$ になる。
 
     したがって 4 つ目のパラメータは要らない。$d = 0$ とした 3 パラメータの形を使う。
-    これは 4 パラメータの族のうち、$d = 0$ になる 1 本にあたる。
+    これは上の 4 パラメータの族のうち、$d = 0$ になる 1 本にあたる。
     """)
     return
 
@@ -177,18 +235,64 @@ def _(mo):
     q \equiv \frac{\ln(d_2/d_0)}{\ln(d_1/d_0)} = \frac{\ln(1 + L_2/b)}{\ln(1 + L_1/b)}
     $$
 
-    $q$ も条件の値だけで決まる。$b$ が決まれば
+    $q$ も条件の値だけで決まる。右辺は $b\to\infty$ で $L_2/L_1$、$b\to 0$ で 1 なので、
+    $L_2/L_1 < q < 1$ のときに解がある。$b$ が決まれば
 
     $$
     p = \frac{\ln(d_1/d_0)}{\ln(1 + L_1/b)},\qquad a = \frac{d_0}{b^p}
     $$
 
-    この式の組み立ては、次の $k$ の形にするとすっきりする。
+    ### 実例: 3 点から $a, b, p$ を求める
     """)
     return
 
 
 @app.cell
+def _(L1, L2, brentq, d0, d1, d2, mo, np, solve4, xx, ys4):
+    def solve3():
+        """D(0)=d0, D(L1)=d1, D(L2)=d2 を満たす (a, b, p) を返す。"""
+        _q = np.log(d2 / d0) / np.log(d1 / d0)
+        if not L2 / L1 < _q < 1:
+            raise ValueError(f"解がない: q = {_q:.6f} は ({L2 / L1:.6f}, 1) の外")
+        _b = brentq(lambda b: np.log1p(L2 / b) / np.log1p(L1 / b) - _q, 1e-9, 1e9, xtol=1e-12, rtol=1e-15)
+        _p = np.log(d1 / d0) / np.log1p(L1 / _b)
+        return d0 / _b**_p, _b, _p
+
+    a3, b3, p3 = solve3()
+    y3 = a3 * (xx + b3) ** p3
+    _chk = "\n".join(
+        f"| {xq:g} | {a3 * (xq + b3) ** p3:.6f} | {dq:g} |" for xq, dq in [(0.0, d0), (L2, d2), (L1, d1)]
+    )
+    _d = solve4(p3)[2]  # 4 パラメータの形で同じ p
+    mo.md(
+        f"$q$ = {np.log(d2 / d0) / np.log(d1 / d0):.6f}(解のある範囲 {L2 / L1:.6f} .. 1)\n\n"
+        f"- $a$ = **{a3:.10g}**\n- $b$ = **{b3:.10g}**\n- $p$ = **{p3:.10g}**\n\n"
+        "| x | D(x) | 目標 |\n|---|---|---|\n" + _chk
+        + f"\n\n4 パラメータの形で同じ $p$ を使うと $d$ = {_d:.3g}(つまり $d = 0$ の 1 本)。"
+        f"上の 4 パラメータの族との差の最大: {np.abs(ys4 - y3).max():.4f} mm"
+    )
+    return a3, b3, p3, y3
+
+
+@app.cell
+def _(L1, L2, a3, b3, d0, d1, d2, p3, plt, xx, y3):
+    fig_abp, ax_abp = plt.subplots(2, 1, figsize=(8, 7), sharex=True)
+    ax_abp[0].plot(xx, y3, label=f"a = {a3:.4g}, b = {b3:.4g}, p = {p3:.4g}")
+    ax_abp[0].plot([0, L1], [d0, d1], "k--", lw=0.8, label="linear taper (p = 1)")
+    ax_abp[0].plot([0, L2, L1], [d0, d2, d1], "ko")
+    ax_abp[1].plot(xx, a3 * p3 * (xx + b3) ** (p3 - 1.0))
+    ax_abp[1].axhline((d1 - d0) / L1, color="k", ls="--", lw=0.8)
+    ax_abp[0].set_ylabel("D [mm]")
+    ax_abp[1].set_ylabel("dD/dx")
+    ax_abp[1].set_xlabel("x [mm] from the mouthpiece exit")
+    ax_abp[0].legend()
+    for _ax in ax_abp:
+        _ax.grid(True)
+    fig_abp
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
     ## $k$ の形: $D(x) = d_0\,(d_1/d_0)^{\varphi(x/L_1)}$
@@ -206,7 +310,18 @@ def _(mo):
     p = \frac{\ln(d_1/d_0)}{\ln(1+k)}
     $$
 
-    これを代入すると $D = d_0 \exp\!\left[p \ln(1+k\,u)\right]$ から
+    これを代入すると
+
+    $$
+    \begin{aligned}
+    D &= d_0\,(1 + k\,u)^p \\
+      &= d_0 \exp\!\left[p \ln(1+k\,u)\right] \\
+      &= d_0 \exp\!\left[\frac{\ln(d_1/d_0)\ln(1+k\,u)}{\ln(1+k)}\right] \\
+      &= d_0 (\frac{d_1}{d_0})^{\frac{\ln(1+k\,u)}{\ln(1+k)}}
+    \end{aligned}
+    $$
+
+    から
 
     $$
     \boxed{\;D(x) = d_0 \left(\frac{d_1}{d_0}\right)^{\varphi(u)},\qquad
@@ -227,7 +342,7 @@ def _(mo):
 
     ### 3 点の条件
 
-    条件 3 は $\left(d_2/d_0\right) = \left(d_1/d_0\right)^{\varphi(L_2/L_1)}$、すなわち
+    条件 3 は $d_2/d_0 = \left(d_1/d_0\right)^{\varphi(L_2/L_1)}$、すなわち
 
     $$
     \varphi\!\left(\frac{L_2}{L_1}\right) = q = \frac{\ln(d_2/d_0)}{\ln(d_1/d_0)}
@@ -237,29 +352,13 @@ def _(mo):
     $k\to 0$ で $L_2/L_1$、$k\to\infty$ で 1 になるので、$L_2/L_1 < q < 1$ なら $k$ がただ一つ決まる。
     中膨らみ($k > d_1/d_0 - 1$)になるのは、$q$ が直線のときの値 $\ln\!\left(1 + (d_1/d_0 - 1)\,L_2/L_1\right) / \ln(d_1/d_0)$ より大きいとき。
 
-    ### 形のパラメータ $\mu = \ln k$
+    ### 傾き
 
-    $k$ は 0 から $\infty$ まで動き、形の変わり方は $k$ の対数に対してほぼ均等になる(実例で確かめる)。
-    そこで $\mu = \ln k$ を形のパラメータとし、$k = e^{\mu}$ とする。直線のテーパーは $\mu = \ln(d_1/d_0 - 1)$。
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""
-    ## 実例
+    $$
+    D'(x) = D(x)\,\ln\frac{d_1}{d_0}\cdot\frac{k}{L_1\,(1+k\,u)\,\ln(1+k)}
+    $$
 
     ### 計算に使う関数
-
-    形の大きさの目安として、直線のテーパーからの最大の膨らみ
-
-    $$
-    h = \max_{0 \le x \le L_1} \left[ D(x) - \left(d_0 + \frac{d_1-d_0}{L_1}\,x\right) \right]
-    $$
-
-    も求める。最大の位置は $D'(x)$ が直線の傾き $(d_1-d_0)/L_1$ に等しいところ。
-    $D'(x) = D(x)\,\ln(d_1/d_0)\,\dfrac{k}{L_1\,(1+k\,u)\,\ln(1+k)}$。
     """)
     return
 
@@ -288,14 +387,6 @@ def _(L1, brentq, d0, d1, np):
         _p = LN_R / np.log1p(k)
         return d0 / _b**_p, _b, _p
 
-    def bulge(k):
-        """直線のテーパーからの最大の膨らみ h と、その位置 x* を返す。中膨らみでなければ (0, nan)。"""
-        if k <= K_LIN * (1.0 + 1e-9):
-            return 0.0, np.nan
-        _m = (d1 - d0) / L1
-        _x = brentq(lambda x: slope(x, k) - _m, 0.0, L1, xtol=1e-10)  # 中膨らみなら D' は単調に減る
-        return float(diameter(_x, k)) - (d0 + _m * _x), _x
-
     def solve_k(L2, d2):
         """3 点目 D(L2) = d2 を満たす k を返す(φ(L2/L1) = q を μ = ln k について解く)。"""
         _q = np.log(d2 / d0) / LN_R
@@ -305,13 +396,13 @@ def _(L1, brentq, d0, d1, np):
             raise ValueError(f"解がない: q = {_q:.6f} は ({L2 / L1:.6f}, 1) の外")
         _mu = brentq(lambda m: phi(L2 / L1, np.exp(m)) - _q, -30.0, 60.0, xtol=1e-14)
         return float(np.exp(_mu))
-    return K_LIN, bulge, diameter, k_to_abp, slope, solve_k
+    return K_LIN, diameter, k_to_abp, slope, solve_k
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
     mo.md(r"""
-    ### 3 点から $k$ を求める
+    ### 実例: 3 点から $k$ を求める
     """)
     return
 
@@ -321,7 +412,7 @@ def _(
     K_LIN,
     L1,
     L2,
-    bulge,
+    b3,
     d0,
     d1,
     d2,
@@ -329,12 +420,12 @@ def _(
     k_to_abp,
     mo,
     np,
+    p3,
     slope,
     solve_k,
 ):
     k_fit = solve_k(L2, d2)
-    a_fit, b_fit, p_fit = k_to_abp(k_fit)
-    h_fit, x_fit = bulge(k_fit)
+    _a, _b, _p = k_to_abp(k_fit)
     _q = np.log(d2 / d0) / np.log(d1 / d0)
     _q_lin = np.log1p(K_LIN * L2 / L1) / np.log(d1 / d0)
     _chk = "\n".join(
@@ -345,12 +436,13 @@ def _(
         f"- $k$ = **{k_fit:.10g}**($\\mu = \\ln k$ = {np.log(k_fit):.6f}、直線は $k$ = {K_LIN:.6f}、"
         + ("中膨らみ" if k_fit > K_LIN else "**中膨らみでない**")
         + ")\n"
-        f"- 3 パラメータの形では $a$ = {a_fit:.10g}、$b$ = {b_fit:.10g}、$p$ = {p_fit:.10g}\n"
-        f"- 最大の膨らみ $h$ = {h_fit:.4f} mm($x$ = {x_fit:.1f})\n\n"
+        f"- 3 パラメータの形に直すと $a$ = {_a:.10g}、$b$ = {_b:.10g}、$p$ = {_p:.10g}"
+        f"(3 パラメータの節の値との差: $b$ {_b - b3:.2g}、$p$ {_p - p3:.2g})\n"
+        "\n"
         "| x | D(x) | 目標 |\n|---|---|---|\n" + _chk
         + f"\n\n$D'(0)$ = {float(slope(0.0, k_fit)):.6f}、$D'(L_1)$ = {float(slope(L1, k_fit)):.6f}"
     )
-    return h_fit, k_fit, p_fit
+    return (k_fit,)
 
 
 @app.cell
@@ -371,98 +463,28 @@ def _(L1, L2, d0, d1, d2, diameter, k_fit, np, plt, slope, xx):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### 4 パラメータの族と比べる
+    ## $\mu$ の形: $k = e^{\mu}$
 
-    4 パラメータの形で、3 条件を満たしたまま $p$ を動かす。
+    $k$ は 0 から $\infty$ まで動き、形の変わり方は $p$ や $k$ そのものより $k$ の対数に対して均等に近い(下の比較で見る)。
+    そこで $\mu = \ln k$ を形のパラメータとし、
+
+    $$
+    D(x) = d_0 \left(\frac{d_1}{d_0}\right)^{\varphi(u)},\qquad
+    \varphi(u) = \frac{\ln(1 + e^{\mu} u)}{\ln(1 + e^{\mu})}
+    $$
+
+    とする。直線のテーパーは $\mu = \ln(d_1/d_0 - 1)$。
     """)
     return
 
 
 @app.cell
-def _(L1, L2, brentq, d0, d1, d2, mo, np, p_fit, xx):
-    def solve4(pv):
-        """4 パラメータの形で、p を与えて 3 条件を満たす (a, b, d) を返す。"""
-        _r = (d2 - d0) / (d1 - d0)
-
-        def g(b):
-            return ((L2 + b) ** pv - b**pv) / ((L1 + b) ** pv - b**pv) - _r
-
-        _b = brentq(g, 0.0, 1e9, xtol=1e-12, rtol=1e-15, maxiter=500)
-        _a = (d1 - d0) / ((L1 + _b) ** pv - _b**pv)
-        return _a, _b, d0 - _a * _b**pv
-
-    _r = (d2 - d0) / (d1 - d0)
-    p_lim = np.log(_r) / np.log(L2 / L1)  # b = 0 になる p。これより小さい p で解がある
-    ps4 = [pv for pv in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7) if pv < p_lim]
-    family4 = {pv: solve4(pv) for pv in ps4}
-    ys4 = np.array([_a * (xx + _b) ** pv + _d for pv, (_a, _b, _d) in family4.items()])
-    spread4 = ys4.max(axis=0) - ys4.min(axis=0)
-    _a0, _b0, _d0 = solve4(p_fit)  # k の形と同じ p
-    _rows = "\n".join(f"| {pv:.1f} | {_a:.5g} | {_b:.5g} | {_d:.5g} |" for pv, (_a, _b, _d) in family4.items())
-    mo.md(
-        f"解のある $p$ の範囲: 0 < $p$ < {p_lim:.6f}\n\n"
-        "| p | a | b | d |\n|---|---|---|---|\n" + _rows
-        + f"\n\n径の差の最大: **{spread4.max():.4f} mm**(x = {xx[spread4.argmax()]:g})  \n"
-        f"$k$ の形と同じ $p$ = {p_fit:.6f} では $d$ = {_d0:.3g}(つまり $d = 0$ の 1 本が $k$ の形)。"
-    )
-    return ps4, spread4, ys4
-
-
-@app.cell
-def _(L1, L2, d0, d1, d2, diameter, k_fit, mo, np, plt, ps4, spread4, xx, ys4):
-    _dk = np.abs(ys4 - diameter(xx, k_fit)).max()
-    fig_family, ax_family = plt.subplots(2, 1, figsize=(8, 7), sharex=True)
-    for _pv, _y in zip(ps4, ys4):
-        ax_family[0].plot(xx, _y, label=f"p = {_pv:.1f}")
-    ax_family[0].plot(xx, diameter(xx, k_fit), "k:", lw=1.2, label="k form")
-    ax_family[0].plot([0, L2, L1], [d0, d2, d1], "ko")
-    ax_family[0].set_ylabel("D [mm]")
-    ax_family[0].legend()
-    ax_family[1].plot(xx, spread4)
-    ax_family[1].set_ylabel("spread of D [mm]")
-    ax_family[1].set_xlabel("x [mm] from the mouthpiece exit")
-    for _ax in ax_family:
-        _ax.grid(True)
-    mo.vstack([mo.md(f"$k$ の形と 4 パラメータの族との差の最大: **{_dk:.4f} mm**"), fig_family])
-    return
-
-
-@app.cell
 def _(mo):
     mo.md(r"""
-    ### パラメータと形の変わり方
-
-    $D(0) = d_0$、$D(L_1) = d_1$ だけを満たす曲線(条件 3 は外す)で、パラメータを変えたときの最大の膨らみ $h$ を比べる。
-    横軸は $p$、$\ln p$、$\mu = \ln k$。
-    """)
-    return
-
-
-@app.cell
-def _(K_LIN, bulge, k_to_abp, np, plt):
-    _mus = np.linspace(np.log(K_LIN), 4.0, 200)
-    _hs = np.array([bulge(np.exp(_m))[0] for _m in _mus])
-    _ps = np.array([k_to_abp(np.exp(_m))[2] for _m in _mus])
-    fig_param, ax_param = plt.subplots(1, 3, figsize=(12, 3.4), sharey=True)
-    for _ax, (_name, _v) in zip(ax_param, {"p": _ps, "ln p": np.log(_ps), "mu = ln k": _mus}.items()):
-        _ax.plot(_v, _hs)
-        _ax.set_xlabel(_name)
-        _ax.grid(True)
-    ax_param[0].set_ylabel("bulge h [mm]")
-    fig_param.tight_layout()
-    fig_param
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""
-    $p$ では小さい側で急に形が変わる。$\ln p$ でもまだ偏りが残る。$\mu = \ln k$ では、直線の近くを除いてほぼ直線的に $h$ が増える。
-
-    ### $\mu$ を変えたときの比較
+    ### 実例: $\mu$ を変えて比べる
 
     $D(0) = d_0$、$D(L_1) = d_1$ だけを満たし、$\mu$ を直線の値から 0.5 ずつ増やす。
     曲線どうしの径の差が最も大きい位置を取り上げ、その位置での値も表にする。
@@ -488,7 +510,6 @@ def _(
     d1,
     d2,
     diameter,
-    h_fit,
     k_fit,
     mu_list,
     np,
@@ -501,7 +522,7 @@ def _(
     fig_mu, ax_mu = plt.subplots(2, 1, figsize=(8, 7), sharex=True)
     for _m, _y in zip(mu_list, ys_mu):
         ax_mu[0].plot(xx, _y, label=f"mu = {_m:.3f}")
-    ax_mu[0].plot(xx, diameter(xx, k_fit), "k:", lw=1.2, label=f"3-point fit (mu = {np.log(k_fit):.3f}, h = {h_fit:.3f})")
+    ax_mu[0].plot(xx, diameter(xx, k_fit), "k:", lw=1.2, label=f"3-point fit (mu = {np.log(k_fit):.3f})")
     ax_mu[0].plot([0, L2, L1], [d0, d2, d1], "ko")
     ax_mu[0].axvline(x_max, color="gray", lw=0.8)
     ax_mu[0].set_ylabel("D [mm]")
@@ -519,7 +540,6 @@ def _(
 @app.cell
 def _(
     L1,
-    bulge,
     d0,
     d1,
     i_max,
@@ -536,16 +556,13 @@ def _(
     _rows = []
     for _i, _m in enumerate(mu_list):
         _k = float(np.exp(_m))
-        _h, _x = bulge(_k)
         _rows.append(
-            f"| {_m:.3f} | {_k:.4g} | {k_to_abp(_k)[2]:.4f} | {_h:.4f} | "
-            + ("–" if np.isnan(_x) else f"{_x:.1f}")
-            + f" | {ys_mu[_i, i_max]:.4f} | {ys_mu[_i, i_max] - _lin:+.4f} | {float(slope(0.0, _k)):.5f} |"
+            f"| {_m:.3f} | {_k:.4g} | {k_to_abp(_k)[2]:.4f} | {ys_mu[_i, i_max]:.4f} | {ys_mu[_i, i_max] - _lin:+.4f} | {float(slope(0.0, _k)):.5f} |"
         )
     mo.md(
         f"径の差が最も大きい位置: **x = {x_max:g}**(差 {spread_mu[i_max]:.4f} mm)\n\n"
-        f"| μ | k | p | h | 膨らみ最大の x | D({x_max:g}) | 直線との差 | D'(0) |\n"
-        "|---|---|---|---|---|---|---|---|\n" + "\n".join(_rows)
+        f"| μ | k | p | D({x_max:g}) | 直線との差 | D'(0) |\n"
+        "|---|---|---|---|---|---|\n" + "\n".join(_rows)
     )
     return
 
