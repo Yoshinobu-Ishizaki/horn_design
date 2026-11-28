@@ -30,3 +30,6 @@ output/
 /impedance/**/*.imp
 /impedance/**/*.res
 /impedance/**/report.html
+
+# marimo の実行キャッシュ
+__marimo__/
