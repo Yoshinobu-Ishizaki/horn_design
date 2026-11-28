@@ -33,3 +33,6 @@ output/
 
 # marimo の実行キャッシュ
 __marimo__/
+
+# 区間ごとの長さの表(上流のデータを含む。ローカルにだけ置く)
+/cad/**/bb_mensur_sections.csv
